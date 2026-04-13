@@ -338,22 +338,63 @@ const UNIVERSAL_TITLES = [
   "small business saturday","world health day","national social media day",
 ]
 
-export function matchAllHolidaysToAllBrands(holidays, brands) {
-  const THRESHOLD = 4
-  const result = {}
+// Returns { brandId: score } map for a holiday
+export function scoreholidayAllBrands(holiday, brands) {
+  const raw = {}
+  for (const brand of brands) {
+    raw[brand.id] = scoreHolidayForBrand(holiday, brand.name)
+  }
+  return raw
+}
+
+// Two-tier classification:
+// HIGH  (≥7) → auto-match, no AI needed
+// LOW   (<4) → skip, no brand fit
+// UNSURE(4-6) → send to AI for final decision
+export function classifyHolidays(holidays, brands) {
+  const autoMatched = []   // { ...holiday, brandIds: [...] }
+  const needsAI     = []   // holidays where AI should decide
+  const skipped     = []   // no brand fit at all
 
   for (const holiday of holidays) {
-    const matchedBrandIds = []
-    for (const brand of brands) {
-      const s = scoreHolidayForBrand(holiday, brand.name)
-      if (s >= THRESHOLD) matchedBrandIds.push(brand.id)
-    }
-    if (matchedBrandIds.length > 0) {
-      result[holiday.id] = matchedBrandIds
+    const scores = scoreholidayAllBrands(holiday, brands)
+    const highBrands   = brands.filter(b => scores[b.id] >= 7).map(b => b.id)
+    const mediumBrands = brands.filter(b => scores[b.id] >= 4 && scores[b.id] < 7).map(b => b.id)
+    const maxScore     = Math.max(...Object.values(scores))
+
+    if (highBrands.length > 0) {
+      // Confident match — skip AI, auto-assign
+      autoMatched.push({ ...holiday, brandIds: highBrands, matchedBy: 'keyword' })
+    } else if (maxScore >= 4 || isUniversalHoliday(holiday)) {
+      // Uncertain — let AI decide
+      needsAI.push(holiday)
+    } else {
+      // No keyword signal at all — still send to AI (catches things like "Malbec World Day")
+      // but only if the title isn't obviously irrelevant
+      if (!isObviouslyIrrelevant(holiday)) {
+        needsAI.push(holiday)
+      } else {
+        skipped.push(holiday)
+      }
     }
   }
 
-  return result
+  return { autoMatched, needsAI, skipped }
+}
+
+function isUniversalHoliday(holiday) {
+  const t = holiday.title.toLowerCase()
+  return UNIVERSAL_TITLES.some(u => t.includes(u))
+}
+
+function isObviouslyIrrelevant(holiday) {
+  // Skip things like specific person birthdays, hyper-niche days with no brand angle
+  const t = holiday.title.toLowerCase()
+  const irrelevantPatterns = [
+    'birthday of', 'anniversary of', 'death of', 'battle of',
+    'treaty of', 'invasion of', 'surrender of',
+  ]
+  return irrelevantPatterns.some(p => t.includes(p))
 }
 
 function scoreHolidayForBrand(holiday, brandName) {
@@ -394,4 +435,13 @@ function scoreHolidayForBrand(holiday, brandName) {
   score += kwMatches * 2
 
   return score
+}
+
+export function matchAllHolidaysToAllBrands(holidays, brands) {
+  const result = {}
+  for (const holiday of holidays) {
+    const ids = brands.filter(b => scoreHolidayForBrand(holiday, b.name) >= 4).map(b => b.id)
+    if (ids.length > 0) result[holiday.id] = ids
+  }
+  return result
 }

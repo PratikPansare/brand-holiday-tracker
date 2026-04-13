@@ -12,7 +12,7 @@ import Toast from './components/Toast'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { checkNotifications, scheduleNotification, showToast } from './utils/notifications'
 import { getStoredToken } from './utils/googleCalendar'
-import { matchAllHolidaysToAllBrands } from './utils/matching'
+import { matchAllHolidaysToAllBrands, classifyHolidays } from './utils/matching'
 import { scrapeHolidaysForMonths } from './utils/webScraper'
 import { matchHolidaysWithAI } from './utils/aiMatching'
 
@@ -61,13 +61,16 @@ export default function App() {
     setFetchProgress('Starting...')
 
     try {
-      // Build list of next 3 months
+      const monthsToFetch = settings.monthsToFetch || 1
       const now = new Date()
       const monthList = []
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < monthsToFetch; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
         monthList.push({ month: d.getMonth() + 1, year: d.getFullYear() })
       }
+
+      const geminiCallsNeeded = Math.ceil((monthList.length * 35) / 60)
+      setFetchProgress(`Fetching ${monthsToFetch} month${monthsToFetch > 1 ? 's' : ''} (~${geminiCallsNeeded} AI call${geminiCallsNeeded > 1 ? 's' : ''})...`)
 
       // Step 1: Scrape nationaltoday.com via CORS proxy
       let allHolidays = []
@@ -90,63 +93,73 @@ export default function App() {
         return
       }
 
-      setFetchProgress(`Loaded ${allHolidays.length} holidays — now matching to brands...`)
+      setFetchProgress(`Loaded ${allHolidays.length} holidays — running smart pre-filter...`)
 
-      // Tag each holiday with a stable ID
-      const candidates = allHolidays.map(h => ({
-        ...h,
-        id: `h_${h.date}_${h.title.replace(/\W+/g, '_')}`,
-      }))
-
-      // Remove already-stored ones
+      // Tag each holiday with a stable ID, skip already stored ones
       const existingIds = new Set(events.map(e => e.id))
-      const newCandidates = candidates.filter(h => !existingIds.has(h.id))
+      const newCandidates = allHolidays
+        .map(h => ({ ...h, id: `h_${h.date}_${h.title.replace(/\W+/g, '_')}` }))
+        .filter(h => !existingIds.has(h.id))
 
       if (newCandidates.length === 0) {
         showToast('Up to date', 'No new holidays to add', 'info')
         return
       }
 
-      // Step 2: Match — AI if key available, else smart keyword matching
-      let matches = {}
-      if (settings.geminiApiKey) {
-        try {
-          setFetchProgress('AI is analysing holidays for each brand...')
-          matches = await matchHolidaysWithAI(newCandidates, brands, settings.geminiApiKey, setFetchProgress)
-          setFetchProgress('AI matching complete ✓')
-        } catch (aiErr) {
-          showToast('AI matching failed', aiErr.message + ' — falling back to keyword matching', 'error')
-          matches = matchAllHolidaysToAllBrands(newCandidates, brands)
+      // ── TWO-TIER MATCHING ────────────────────────────────────────
+      // Tier 1: keyword matching — instant, free, handles obvious cases
+      const { autoMatched, needsAI } = classifyHolidays(newCandidates, brands)
+
+      setFetchProgress(
+        `Pre-filter: ${autoMatched.length} auto-matched ✓, ${needsAI.length} sent to AI...`
+      )
+
+      // Tier 2: AI only for uncertain holidays
+      let aiMatches = {}
+      if (needsAI.length > 0) {
+        if (settings.geminiApiKey) {
+          try {
+            aiMatches = await matchHolidaysWithAI(needsAI, brands, settings.geminiApiKey, setFetchProgress)
+          } catch (aiErr) {
+            showToast('AI matching failed', aiErr.message + ' — using keyword fallback', 'error')
+            aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
+          }
+        } else {
+          aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
         }
-      } else {
-        setFetchProgress('Applying smart keyword matching...')
-        matches = matchAllHolidaysToAllBrands(newCandidates, brands)
       }
 
-      // Build new events
-      const newEvents = newCandidates
-        .filter(h => (matches[h.id] || []).length > 0)
-        .map(h => ({
-          id: h.id,
-          title: h.title,
-          date: h.date,
-          description: h.description || '',
-          category: h.category || '',
-          tags: h.tags || '',
-          brandIds: matches[h.id],
-          isManual: false,
-          pushed: false,
-          notified: false,
-          url: h.url || '',
-        }))
+      // Merge both tiers into final events
+      const newEvents = [
+        // Tier 1 auto-matches
+        ...autoMatched.map(h => ({
+          id: h.id, title: h.title, date: h.date,
+          description: h.description || '', category: h.category || '',
+          tags: h.tags || '', brandIds: h.brandIds,
+          isManual: false, pushed: false, notified: false,
+          matchedBy: 'keyword',
+        })),
+        // Tier 2 AI matches
+        ...needsAI
+          .filter(h => (aiMatches[h.id] || []).length > 0)
+          .map(h => ({
+            id: h.id, title: h.title, date: h.date,
+            description: h.description || '', category: h.category || '',
+            tags: h.tags || '', brandIds: aiMatches[h.id],
+            isManual: false, pushed: false, notified: false,
+            matchedBy: settings.geminiApiKey ? 'ai' : 'keyword',
+          })),
+      ]
 
       setEvents(prev => [...prev, ...newEvents])
       setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
 
-      const method = settings.geminiApiKey ? 'AI' : 'keyword'
+      const aiCount = newEvents.filter(e => e.matchedBy === 'ai').length
+      const kwCount = newEvents.filter(e => e.matchedBy === 'keyword').length
+      const method = settings.geminiApiKey ? `${kwCount} keyword + ${aiCount} AI` : 'keyword matching'
       showToast(
         `${newEvents.length} holidays matched ✓`,
-        `Used ${method} matching across ${brands.length} brands`,
+        `${method} — Brand Schedule updated`,
         'success'
       )
       setView('schedule')

@@ -42,11 +42,11 @@ export default function Settings({ settings, setSettings, events, brands }) {
     if (!geminiKey.trim()) return
     setTestingKey(true)
     try {
-      await testGeminiKey(geminiKey.trim())
-      setSettings(s => ({ ...s, geminiApiKey: geminiKey.trim() }))
-      showToast('Gemini AI Connected ✓', 'AI-powered matching is now active', 'success')
+      const { model } = await testGeminiKey(geminiKey.trim())
+      setSettings(s => ({ ...s, geminiApiKey: geminiKey.trim(), geminiModel: model }))
+      showToast(`Gemini Connected ✓`, `Using model: ${model}`, 'success')
     } catch (err) {
-      showToast('Invalid API Key', err.message, 'error')
+      showToast('Connection Failed', err.message, 'error')
     } finally {
       setTestingKey(false)
     }
@@ -136,7 +136,9 @@ export default function Settings({ settings, setSettings, events, brands }) {
             <div className="settings-row" style={{ padding: 0 }}>
               <div>
                 <div style={{ fontWeight: 600 }}>Gemini AI</div>
-                <div style={{ fontSize: 12, color: 'var(--green)' }}>✓ Connected — AI matching active</div>
+                <div style={{ fontSize: 12, color: 'var(--green)' }}>
+                  ✓ Connected — {settings.geminiModel || 'auto-detected model'}
+                </div>
               </div>
               <button
                 className="btn btn-danger btn-sm"
@@ -200,7 +202,36 @@ export default function Settings({ settings, setSettings, events, brands }) {
 
       {/* ── DATA ──────────────────────────────────────────── */}
       <div className="settings-section">
-        <div className="settings-section-header">Data</div>
+        <div className="settings-section-header">Data & Fetch Settings</div>
+
+        {/* Months to fetch */}
+        <div className="settings-row">
+          <div>
+            <div>Months to fetch per pull</div>
+            <div className="settings-row-desc">
+              {settings.monthsToFetch === 1 && '1 Gemini API call — recommended for weekly use'}
+              {settings.monthsToFetch === 2 && '~1–2 Gemini API calls — good for planning ahead'}
+              {settings.monthsToFetch === 3 && '~2–3 Gemini API calls — uses more daily quota'}
+              {!settings.monthsToFetch && '1 Gemini API call — recommended'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {[1, 2, 3].map(n => (
+              <button
+                key={n}
+                onClick={() => setSettings(s => ({ ...s, monthsToFetch: n }))}
+                style={{
+                  width: 36, height: 36, borderRadius: 'var(--radius-sm)',
+                  border: `1px solid ${(settings.monthsToFetch || 1) === n ? 'var(--gold)' : 'var(--border-light)'}`,
+                  background: (settings.monthsToFetch || 1) === n ? 'var(--gold-dim)' : 'transparent',
+                  color: (settings.monthsToFetch || 1) === n ? 'var(--gold)' : 'var(--muted-light)',
+                  fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15,
+                  cursor: 'pointer', transition: 'all 0.15s ease',
+                }}
+              >{n}</button>
+            ))}
+          </div>
+        </div>
         <div className="settings-row">
           <div>
             <div>Export</div>

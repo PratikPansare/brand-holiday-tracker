@@ -17,6 +17,25 @@ const MONTH_SHORT = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ]
 
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+function getCacheKey(month, year) { return `scrape_cache_${year}_${month}` }
+
+function getCached(month, year) {
+  try {
+    const raw = localStorage.getItem(getCacheKey(month, year))
+    if (!raw) return null
+    const { holidays, timestamp } = JSON.parse(raw)
+    if (Date.now() - timestamp > CACHE_TTL_MS) { localStorage.removeItem(getCacheKey(month, year)); return null }
+    return holidays
+  } catch { return null }
+}
+
+function setCache(month, year, holidays) {
+  try { localStorage.setItem(getCacheKey(month, year), JSON.stringify({ holidays, timestamp: Date.now() })) } catch {}
+}
+
+
 async function fetchWithProxy(targetUrl) {
   for (const makeProxy of CORS_PROXIES) {
     try {
@@ -121,14 +140,21 @@ function parseHolidaysFromHTML(html, month, year) {
 }
 
 export async function scrapeHolidaysForMonth(month, year, onProgress) {
+  // Check 24h cache first
+  const cached = getCached(month, year)
+  if (cached) {
+    onProgress?.(`Using cached data for ${MONTH_SHORT[month]} ${year} (${cached.length} holidays)`)
+    return cached
+  }
+
   const monthName = MONTH_NAMES[month]
   const url = `https://nationaltoday.com/${monthName}-holidays/`
-
   onProgress?.(`Fetching ${MONTH_SHORT[month]} ${year} from nationaltoday.com...`)
 
   const html = await fetchWithProxy(url)
   const holidays = parseHolidaysFromHTML(html, month, year)
 
+  setCache(month, year, holidays)
   onProgress?.(`Found ${holidays.length} holidays in ${MONTH_SHORT[month]}`)
   return holidays
 }
