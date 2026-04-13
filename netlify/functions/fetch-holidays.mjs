@@ -293,6 +293,111 @@ const ALL_HOLIDAYS = [
   { date: '12-27', title: 'National Fruitcake Day', category: 'Food & Beverage', tags: 'food,baking,holiday,dessert,seasonal' },
   { date: '12-28', title: 'National Card Playing Day', category: 'Fun', tags: 'games,fun,family,social,entertainment' },
   { date: '12-31', title: "New Year's Eve", category: 'Federal', tags: 'celebration,champagne,wine,cocktail,party,food,fun,fireworks,new year' },
+
+  // ── ADDITIONAL SPECIFIC HOLIDAYS ─────────────────────────────────────────
+
+  // WINE & BEVERAGE specific
+  { date: '04-17', title: 'Malbec World Day', category: 'Food & Beverage', tags: 'wine,malbec,winery,vineyard,grape,red wine,argentina,tasting,drink,alcohol,celebration' },
+  { date: '01-12', title: 'National Merlot Day', category: 'Food & Beverage', tags: 'wine,merlot,winery,vineyard,grape,red wine,tasting,drink,alcohol' },
+  { date: '05-25', title: 'National Chardonnay Day', category: 'Food & Beverage', tags: 'wine,chardonnay,winery,vineyard,grape,white wine,tasting,drink,alcohol' },
+  { date: '08-18', title: 'National Pinot Noir Day', category: 'Food & Beverage', tags: 'wine,pinot noir,winery,vineyard,grape,red wine,tasting,drink,alcohol,sommelier' },
+  { date: '09-01', title: 'National Cabernet Sauvignon Day', category: 'Food & Beverage', tags: 'wine,cabernet,winery,vineyard,grape,red wine,tasting,drink,alcohol' },
+  { date: '08-24', title: 'National Rosé Day', category: 'Food & Beverage', tags: 'wine,rosé,winery,vineyard,grape,pink wine,tasting,drink,alcohol,summer' },
+  { date: '11-07', title: 'National Sauvignon Blanc Day', category: 'Food & Beverage', tags: 'wine,sauvignon blanc,winery,vineyard,grape,white wine,tasting,drink,alcohol' },
+  { date: '03-24', title: 'National Cocktail Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,mixology,spirits,bar,winery,celebration' },
+  { date: '10-02', title: 'National Wine Tasting Day', category: 'Food & Beverage', tags: 'wine,winery,vineyard,tasting,sommelier,drink,alcohol,grape,pairing' },
+  { date: '06-01', title: 'National Cognac Day', category: 'Food & Beverage', tags: 'cognac,brandy,spirits,drink,alcohol,winery,luxury,french' },
+  { date: '09-23', title: 'National Great American Beer Festival', category: 'Food & Beverage', tags: 'beer,craft beer,brewing,ale,lager,ipa,drink,alcohol,bar' },
+  { date: '10-22', title: 'National Champagne Day', category: 'Food & Beverage', tags: 'champagne,wine,sparkling,winery,vineyard,celebration,drink,alcohol,toast' },
+  { date: '07-24', title: 'National Tequila Day', category: 'Food & Beverage', tags: 'tequila,cocktail,drink,alcohol,spirits,bar,margarita,celebration' },
+  { date: '06-19', title: 'National Bourbon Day', category: 'Food & Beverage', tags: 'bourbon,whiskey,spirits,drink,alcohol,bar,barrel,oak,aged' },
+  { date: '03-27', title: 'National Whiskey Day', category: 'Food & Beverage', tags: 'whiskey,scotch,bourbon,spirits,drink,alcohol,bar,aged,barrel' },
+
+  // WELLNESS & SPA specific
+  { date: '03-01', title: 'World Compliment Day', category: 'Health', tags: 'wellness,positivity,kindness,self-care,self-love,mental health' },
+  { date: '04-09', title: 'National Massage Day', category: 'Health', tags: 'massage,spa,wellness,relaxation,self-care,body,therapy,healing' },
+  { date: '05-04', title: 'National Fitness Day', category: 'Health', tags: 'fitness,health,wellness,exercise,body,self-care,gym,training' },
+  { date: '06-21', title: 'International Yoga Day', category: 'Health', tags: 'yoga,wellness,meditation,self-care,balance,mindfulness,flexibility,spa' },
+  { date: '09-17', title: 'World Clean Beauty Day', category: 'Health', tags: 'beauty,clean beauty,skin,skincare,spa,wellness,organic,natural' },
+  { date: '10-08', title: 'World Skin Day', category: 'Health', tags: 'skin,skincare,beauty,spa,wellness,self-care,health,dermatology' },
+  { date: '11-12', title: 'National Aromatherapy Day', category: 'Health', tags: 'aromatherapy,spa,wellness,relaxation,essential oil,self-care,holistic' },
+  { date: '08-30', title: 'National Holistic Aromatherapy Day', category: 'Health', tags: 'aromatherapy,holistic,spa,wellness,self-care,healing,essential oil' },
+  { date: '01-19', title: 'World Snow Day / Hygge Day', category: 'Special Interest', tags: 'cozy,hygge,self-care,spa,relax,wellness,warm,comfort,candle,rest' },
+
+  // BARBER / GROOMING specific
+  { date: '03-10', title: 'National Beard Day', category: 'Special Interest', tags: 'beard,barber,grooming,men,facial hair,shave,style,dapper' },
+  { date: '10-16', title: 'National Barbers Day', category: 'Special Interest', tags: 'barber,haircut,grooming,men,shave,beard,fade,salon,barbershop' },
+  { date: '06-12', title: 'National Men\'s Hair Day', category: 'Special Interest', tags: 'hair,barber,grooming,men,haircut,style,fade,cut' },
+  { date: '09-30', title: 'International Podium Day / National Hair Day', category: 'Special Interest', tags: 'hair,barber,grooming,beauty,style,cut,salon' },
+  { date: '07-14', title: 'National Shave Day', category: 'Special Interest', tags: 'shave,barber,grooming,men,razor,beard,clean shave,style' },
+  { date: '05-19', title: 'National Men\'s Grooming Day', category: 'Health', tags: 'grooming,men,barber,beard,haircut,style,wellness,self-care,shave' },
+
+  // BIRDS / WILDLIFE specific
+  { date: '01-05', title: 'National Bird Day', category: 'Animals', tags: 'bird,wildlife,nature,falcon,hawk,eagle,raptor,conservation,birding,ornithology' },
+  { date: '05-13', title: 'World Migratory Bird Day', category: 'Animals', tags: 'bird,wildlife,migration,nature,falcon,hawk,eagle,raptor,conservation,birding' },
+  { date: '04-25', title: 'World Penguin Day', category: 'Animals', tags: 'bird,penguin,wildlife,nature,conservation,animals' },
+  { date: '08-04', title: 'International Owl Awareness Day', category: 'Animals', tags: 'owl,bird,wildlife,nature,raptor,nocturnal,conservation,falcon' },
+  { date: '09-24', title: 'National Hunting and Fishing Day', category: 'Sports', tags: 'hunting,wildlife,outdoor,nature,falcon,falconry,adventure,conservation' },
+  { date: '03-15', title: 'World Eagle Day', category: 'Animals', tags: 'eagle,bird,raptor,wildlife,nature,falcon,conservation,soaring,flight' },
+  { date: '10-10', title: 'World Migratory Bird Day (Oct)', category: 'Animals', tags: 'bird,wildlife,migration,nature,falcon,hawk,eagle,raptor,conservation' },
+  { date: '11-10', title: 'National Bald Eagle Day', category: 'Animals', tags: 'eagle,bird,raptor,wildlife,nature,american,conservation,soaring' },
+
+  // MOTORCYCLE / BIKES specific
+  { date: '06-21', title: 'National Motorcycle Day', category: 'Sports', tags: 'motorcycle,bike,riding,motor,road,biker,freedom,adventure,throttle' },
+  { date: '08-03', title: 'Sturgis Motorcycle Rally Week', category: 'Sports', tags: 'motorcycle,bike,riding,biker,rally,road,freedom,culture,custom,harley' },
+  { date: '07-05', title: 'National Mechanic Day', category: 'Special Interest', tags: 'mechanic,automotive,motor,bike,motorcycle,repair,engine,tools,garage' },
+  { date: '04-24', title: 'National Road Trip Day', category: 'Special Interest', tags: 'road trip,motorcycle,bike,riding,adventure,open road,travel,freedom,route' },
+  { date: '05-02', title: 'World Naked Bike Ride Day', category: 'Cause', tags: 'bike,cycling,riding,road,environment,advocacy,freedom' },
+
+  // CONSTRUCTION / HOME specific
+  { date: '04-06', title: 'National Home Improvement Day', category: 'Special Interest', tags: 'home,renovation,construction,DIY,remodel,building,repair,interior,curb appeal' },
+  { date: '03-22', title: 'World Architecture Day', category: 'Arts & Entertainment', tags: 'architecture,building,construction,design,engineering,urban,structure,blueprint' },
+  { date: '07-19', title: 'National Handyman Day', category: 'Special Interest', tags: 'handyman,construction,repair,home,tools,building,renovation,DIY' },
+  { date: '10-20', title: 'National Safety Day', category: 'Cause', tags: 'safety,construction,workers,building,tools,workplace,health' },
+  { date: '05-06', title: 'National Construction Safety Week', category: 'Cause', tags: 'construction,safety,workers,building,hard hat,tools,site' },
+  { date: '09-19', title: 'National Women in Construction Day', category: 'Cause', tags: 'construction,women,building,engineering,empowerment,trade' },
+
+  // REAL ESTATE specific
+  { date: '06-01', title: 'National Homeownership Month Begins', category: 'Special Interest', tags: 'home,real estate,homeowner,property,buying,investment,community,dream home' },
+  { date: '10-03', title: 'National Real Estate Day', category: 'Business', tags: 'real estate,property,home,buying,selling,agent,market,investment,listing' },
+  { date: '04-10', title: 'National Open House Day', category: 'Business', tags: 'real estate,open house,property,home,buying,selling,listing,agent' },
+  { date: '11-01', title: 'National Homeownership Month Ends', category: 'Special Interest', tags: 'home,real estate,homeowner,property,community,neighborhood' },
+  { date: '07-30', title: 'National Mortgage Day', category: 'Finance', tags: 'mortgage,finance,real estate,home,lending,loan,property,buying' },
+
+  // FINANCE specific
+  { date: '02-08', title: 'National Invest in Yourself Day', category: 'Finance', tags: 'finance,investment,wealth,self-improvement,entrepreneur,money,capital,lending' },
+  { date: '04-05', title: 'Gold Star Financial Day', category: 'Finance', tags: 'finance,money,investment,savings,gold,wealth,capital,lending' },
+  { date: '08-14', title: 'National Financial Awareness Day', category: 'Finance', tags: 'finance,money,investment,savings,awareness,wealth,capital,lending,mortgage' },
+  { date: '10-14', title: 'World Savings Day', category: 'Finance', tags: 'finance,savings,money,investment,bank,wealth,capital,budget' },
+
+  // ART / CULTURE specific
+  { date: '01-20', title: 'World Art Deco Day', category: 'Arts & Entertainment', tags: 'art,design,gallery,culture,art deco,aesthetic,architecture,creative' },
+  { date: '03-08', title: 'International Art Day', category: 'Arts & Entertainment', tags: 'art,gallery,museum,culture,creative,painting,sculpture,exhibit' },
+  { date: '04-15', title: 'Leonardo da Vinci Day', category: 'Arts & Entertainment', tags: 'art,painting,gallery,museum,culture,renaissance,creative,genius' },
+  { date: '05-15', title: 'National Creativity Day', category: 'Arts & Entertainment', tags: 'creativity,art,gallery,design,creative,imagination,expression,marketing' },
+  { date: '07-24', title: 'Amelia Earhart Day / Aviation Day', category: 'Special Interest', tags: 'aviation,flight,bird,sky,freedom,adventure,inspiration' },
+  { date: '10-25', title: 'World Artists Day', category: 'Arts & Entertainment', tags: 'art,artist,gallery,museum,culture,creative,painting,sculpture,photography' },
+  { date: '11-10', title: 'International Accounting Day', category: 'Business', tags: 'finance,accounting,business,money,numbers,tax,investment' },
+
+  // DIGITAL MARKETING specific
+  { date: '04-14', title: 'International Moment of Laughter Day', category: 'Fun', tags: 'humor,social media,content,viral,marketing,engagement,fun,brand' },
+  { date: '05-09', title: 'National Receptionists Day / LinkedIn Day', category: 'Business', tags: 'business,marketing,networking,linkedin,social media,digital,brand,professional' },
+  { date: '07-18', title: 'National Get Out of the Doghouse Day / PR Day', category: 'Business', tags: 'marketing,PR,branding,social media,digital,communication,brand reputation' },
+  { date: '09-04', title: 'National Blog Day', category: 'Technology', tags: 'blog,content,marketing,digital,social media,writing,SEO,brand,internet' },
+  { date: '11-08', title: 'National STEM Day', category: 'Technology', tags: 'technology,STEM,innovation,digital,internet,marketing,education,future' },
+
+  // FOOD & NUTRITION specific
+  { date: '03-01', title: 'National Nutrition Month Begins', category: 'Health', tags: 'nutrition,healthy,food,diet,wellness,eating,meal,body,fitness,snack' },
+  { date: '03-15', title: 'National Healthy Lifestyle Day', category: 'Health', tags: 'healthy,lifestyle,nutrition,food,wellness,fitness,diet,clean eating,snack' },
+  { date: '05-22', title: 'International Tea Day', category: 'Food & Beverage', tags: 'tea,drink,beverage,healthy,antioxidant,wellness,nutrition,herbal' },
+  { date: '06-02', title: 'National Trails Day / Outdoor Fitness Day', category: 'Health', tags: 'outdoor,fitness,wellness,nature,trail,exercise,healthy,body,adventure' },
+  { date: '08-01', title: 'National Raspberry Day', category: 'Food & Beverage', tags: 'food,fruit,healthy,snack,antioxidant,berry,nutrition,fresh,organic' },
+  { date: '09-02', title: 'World Coconut Day', category: 'Food & Beverage', tags: 'food,coconut,healthy,nutrition,tropical,snack,oil,milk,organic,plant-based' },
+  { date: '10-01', title: 'World Vegetarian Day', category: 'Food & Beverage', tags: 'food,vegetarian,vegan,plant-based,healthy,nutrition,diet,organic,snack' },
+  { date: '11-01', title: 'World Vegan Day', category: 'Food & Beverage', tags: 'food,vegan,plant-based,healthy,nutrition,diet,organic,snack,clean eating' },
+  { date: '04-22', title: 'National Jelly Bean Day', category: 'Food & Beverage', tags: 'food,candy,sweet,snack,fun,colorful,treat' },
+  { date: '06-03', title: 'National Donut Day', category: 'Food & Beverage', tags: 'food,donut,sweet,snack,bakery,breakfast,treat,indulge' },
+  { date: '10-29', title: 'National Oatmeal Day', category: 'Food & Beverage', tags: 'food,healthy,nutrition,oatmeal,breakfast,fiber,grain,snack,whole food' },
 ]
 
 export default async (req, context) => {

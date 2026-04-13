@@ -3,7 +3,7 @@ import { Plus, RefreshCw, Calendar, CalendarCheck, TableProperties } from 'lucid
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, setEvents, onGoSchedule }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, fetchProgress, setEvents, onGoSchedule }) {
   const today = new Date()
   const upcoming = events
     .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })

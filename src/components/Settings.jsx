@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { Bell, Calendar, Trash2, Download } from 'lucide-react'
+import { Bell, Calendar, Trash2, Download, Sparkles, ExternalLink, Check } from 'lucide-react'
 import { connectGoogleCalendar, getStoredToken } from '../utils/googleCalendar'
 import { requestNotificationPermission, showToast } from '../utils/notifications'
+import { testGeminiKey } from '../utils/aiMatching'
 
 export default function Settings({ settings, setSettings, events, brands }) {
   const [clientId, setClientId] = useState(settings.googleClientId || '')
-  const [saving, setSaving] = useState(false)
+  const [geminiKey, setGeminiKey] = useState(settings.geminiApiKey || '')
+  const [testingKey, setTestingKey] = useState(false)
 
   const handleGoogleConnect = () => {
     connectGoogleCalendar(clientId, (token) => {
@@ -24,13 +26,11 @@ export default function Settings({ settings, setSettings, events, brands }) {
   const handleNotifications = async () => {
     if (settings.notificationsEnabled) {
       setSettings(s => ({ ...s, notificationsEnabled: false }))
-      showToast('Notifications off', 'Browser notifications disabled', 'info')
     } else {
       const granted = await requestNotificationPermission()
       if (granted) {
         setSettings(s => ({ ...s, notificationsEnabled: true }))
         showToast('Notifications enabled ✓', 'You will be reminded before events', 'success')
-        // Send test notification
         setTimeout(() => new Notification('BrandTrack', { body: 'Notifications are working!' }), 1000)
       } else {
         showToast('Permission denied', 'Allow notifications in browser settings', 'error')
@@ -38,53 +38,134 @@ export default function Settings({ settings, setSettings, events, brands }) {
     }
   }
 
+  const handleSaveGemini = async () => {
+    if (!geminiKey.trim()) return
+    setTestingKey(true)
+    try {
+      await testGeminiKey(geminiKey.trim())
+      setSettings(s => ({ ...s, geminiApiKey: geminiKey.trim() }))
+      showToast('Gemini AI Connected ✓', 'AI-powered matching is now active', 'success')
+    } catch (err) {
+      showToast('Invalid API Key', err.message, 'error')
+    } finally {
+      setTestingKey(false)
+    }
+  }
+
   const handleExport = () => {
     const data = { brands, events, exported: new Date().toISOString() }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url
+    a.href = URL.createObjectURL(blob)
     a.download = `brandtrack-export-${new Date().toISOString().split('T')[0]}.json`
     a.click()
   }
 
-  const handleClearEvents = () => {
-    if (confirm('Clear ALL events? This cannot be undone.')) {
-      localStorage.removeItem('events')
-      window.location.reload()
-    }
-  }
+  const isGCalConnected = settings.googleCalendarConnected && settings.googleToken
+  const isGeminiConnected = !!settings.geminiApiKey
 
-  const isConnected = settings.googleCalendarConnected && settings.googleToken
-  
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Settings</h1>
-          <p className="page-subtitle">Configure integrations and preferences</p>
+          <p className="page-subtitle">Configure AI matching, integrations, and preferences</p>
         </div>
       </div>
 
-      {/* Google Calendar */}
+      {/* ── AI MATCHING ──────────────────────────────────────── */}
+      <div className="settings-section">
+        <div className="settings-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Sparkles size={16} style={{ color: '#7B5FF5' }} />
+          AI-Powered Brand Matching
+          <span className="badge badge-violet" style={{ marginLeft: 4, fontSize: 10 }}>FREE</span>
+        </div>
+
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{
+            background: 'rgba(123,95,245,0.08)', border: '1px solid rgba(123,95,245,0.2)',
+            borderRadius: 'var(--radius-sm)', padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>
+              🤖 Use Google Gemini AI — 100% Free
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted-light)', lineHeight: 1.6 }}>
+              Gemini's free tier gives you 1,500 AI requests per day — far more than you'll ever need.
+              It reads every holiday from nationaltoday.com and intelligently decides which brands
+              it suits, so nothing gets missed (like Malbec World Day for Oak Creek).
+            </div>
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                marginTop: 10, color: '#7B5FF5', fontSize: 12, fontWeight: 700,
+                textDecoration: 'none',
+              }}
+            >
+              Get your free key at aistudio.google.com <ExternalLink size={11} />
+            </a>
+          </div>
+
+          {!isGeminiConnected ? (
+            <div>
+              <label>Gemini API Key</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  value={geminiKey}
+                  onChange={e => setGeminiKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  type="password"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveGemini}
+                  disabled={!geminiKey.trim() || testingKey}
+                >
+                  {testingKey ? <span className="loading-spinner" /> : <Check size={14} />}
+                  {testingKey ? 'Testing...' : 'Connect'}
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                Steps: Go to aistudio.google.com → Sign in with Google → Click "Get API Key" → Create key → Paste here
+              </div>
+            </div>
+          ) : (
+            <div className="settings-row" style={{ padding: 0 }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>Gemini AI</div>
+                <div style={{ fontSize: 12, color: 'var(--green)' }}>✓ Connected — AI matching active</div>
+              </div>
+              <button
+                className="btn btn-danger btn-sm"
+                onClick={() => { setSettings(s => ({ ...s, geminiApiKey: '' })); setGeminiKey('') }}
+              >
+                Disconnect
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '12px 20px', fontSize: 12, color: 'var(--muted)' }}>
+          Without Gemini key: uses smart keyword matching (good). With key: uses AI (better — catches everything).
+        </div>
+      </div>
+
+      {/* ── GOOGLE CALENDAR ──────────────────────────────────── */}
       <div className="settings-section">
         <div className="settings-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Calendar size={16} style={{ color: 'var(--gold)' }} />
-          Google Calendar Integration
+          Google Calendar
         </div>
-
-        {!isConnected ? (
-          <div style={{ padding: '20px 20px' }}>
-            <div style={{ marginBottom: 16 }}>
+        {!isGCalConnected ? (
+          <div style={{ padding: '16px 20px' }}>
+            <div className="form-group">
               <label>Google OAuth Client ID</label>
-              <input
-                value={clientId}
-                onChange={e => setClientId(e.target.value)}
-                placeholder="xxxxxxxx.apps.googleusercontent.com"
-              />
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8, lineHeight: 1.6 }}>
-                Get this from <strong style={{ color: 'var(--gold)' }}>console.cloud.google.com</strong> → APIs &amp; Services → Credentials → OAuth 2.0 Client IDs.
-                Add <code style={{ background: 'var(--bg)', padding: '1px 5px', borderRadius: 4 }}>https://your-netlify-site.netlify.app</code> as an authorized origin.
+              <input value={clientId} onChange={e => setClientId(e.target.value)} placeholder="xxxxxxxx.apps.googleusercontent.com" />
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, lineHeight: 1.6 }}>
+                Get from <strong style={{ color: 'var(--gold)' }}>console.cloud.google.com</strong> → APIs & Services → Credentials → OAuth 2.0 Client IDs
               </div>
             </div>
             <button className="btn btn-primary" onClick={handleGoogleConnect} disabled={!clientId.trim()}>
@@ -93,45 +174,36 @@ export default function Settings({ settings, setSettings, events, brands }) {
           </div>
         ) : (
           <div className="settings-row">
-            <div className="settings-row-info">
+            <div>
               <div>Google Calendar</div>
-              <div className="settings-row-desc" style={{ color: 'var(--green)' }}>✓ Connected</div>
+              <div style={{ fontSize: 12, color: 'var(--green)' }}>✓ Connected</div>
             </div>
             <button className="btn btn-danger btn-sm" onClick={handleDisconnect}>Disconnect</button>
           </div>
         )}
       </div>
 
-      {/* Notifications */}
+      {/* ── NOTIFICATIONS ──────────────────────────────────── */}
       <div className="settings-section">
         <div className="settings-section-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <Bell size={16} style={{ color: 'var(--violet)' }} />
           Browser Notifications
         </div>
         <div className="settings-row">
-          <div className="settings-row-info">
-            <div>Enable Reminders</div>
-            <div className="settings-row-desc">Get browser notifications before events</div>
+          <div>
+            <div>Reminders</div>
+            <div className="settings-row-desc">Notify before events are due</div>
           </div>
           <button className={`toggle ${settings.notificationsEnabled ? 'on' : ''}`} onClick={handleNotifications} />
         </div>
-        <div className="settings-row">
-          <div className="settings-row-info">
-            <div>Notification Status</div>
-            <div className="settings-row-desc">Current browser permission level</div>
-          </div>
-          <span className={`badge ${Notification.permission === 'granted' ? 'badge-green' : 'badge-muted'}`}>
-            {typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'}
-          </span>
-        </div>
       </div>
 
-      {/* Data */}
+      {/* ── DATA ──────────────────────────────────────────── */}
       <div className="settings-section">
-        <div className="settings-section-header">Data Management</div>
+        <div className="settings-section-header">Data</div>
         <div className="settings-row">
-          <div className="settings-row-info">
-            <div>Export Data</div>
+          <div>
+            <div>Export</div>
             <div className="settings-row-desc">Download all brands and events as JSON</div>
           </div>
           <button className="btn btn-secondary btn-sm" onClick={handleExport}>
@@ -139,37 +211,35 @@ export default function Settings({ settings, setSettings, events, brands }) {
           </button>
         </div>
         <div className="settings-row">
-          <div className="settings-row-info">
+          <div>
             <div>Clear All Events</div>
-            <div className="settings-row-desc">Remove all fetched and manual events</div>
+            <div className="settings-row-desc">Remove all events and re-fetch fresh</div>
           </div>
-          <button className="btn btn-danger btn-sm" onClick={handleClearEvents}>
-            <Trash2 size={13} /> Clear Events
+          <button className="btn btn-danger btn-sm" onClick={() => {
+            if (confirm('Clear all events?')) { localStorage.removeItem('events'); window.location.reload() }
+          }}>
+            <Trash2 size={13} /> Clear
           </button>
         </div>
       </div>
 
-      {/* Setup Guide */}
+      {/* ── SETUP GUIDE ──────────────────────────────────── */}
       <div className="settings-section">
-        <div className="settings-section-header">🚀 Setup Guide</div>
+        <div className="settings-section-header">🚀 Quick Setup</div>
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[
-            { step: '1', title: 'Add your brands', desc: 'Go to Brands → Add Brand. Include keywords to auto-match holidays.' },
-            { step: '2', title: 'Connect Google Calendar', desc: 'Get OAuth Client ID from Google Cloud Console and paste above.' },
-            { step: '3', title: 'Enable notifications', desc: 'Turn on browser notifications to get reminders before events.' },
-            { step: '4', title: 'Fetch holidays', desc: 'Click "Fetch Holidays" on Dashboard to auto-import holidays from nationaltoday.com.' },
-            { step: '5', title: 'Push to calendar', desc: 'Review events and push them to Google Calendar with one click.' },
+            { step: '1', title: 'Get free Gemini key', desc: 'Visit aistudio.google.com → sign in → Get API Key → paste above. Takes 2 minutes.' },
+            { step: '2', title: 'Fetch Holidays', desc: 'Dashboard → Fetch Holidays. The app reads nationaltoday.com and AI matches everything.' },
+            { step: '3', title: 'View Brand Schedule', desc: 'See all holidays mapped to each brand in the spreadsheet-style grid.' },
+            { step: '4', title: 'Push to Calendar', desc: 'Select events and push to Google Calendar with automatic reminders.' },
           ].map(({ step, title, desc }) => (
             <div key={step} style={{ display: 'flex', gap: 14 }}>
               <div style={{
-                width: 26, height: 26, borderRadius: '50%',
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
                 background: 'var(--gold-dim)', border: '1px solid var(--gold-glow)',
                 color: 'var(--gold)', fontFamily: 'var(--font-head)', fontWeight: 800,
                 fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                {step}
-              </div>
+              }}>{step}</div>
               <div>
                 <div style={{ fontWeight: 600, fontSize: 13.5 }}>{title}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{desc}</div>

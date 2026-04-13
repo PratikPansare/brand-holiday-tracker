@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Menu, Plus } from 'lucide-react'
 import Sidebar from './components/Sidebar'
 import Dashboard from './components/Dashboard'
 import BrandsView from './components/BrandsView'
@@ -12,6 +13,8 @@ import { useLocalStorage } from './hooks/useLocalStorage'
 import { checkNotifications, scheduleNotification, showToast } from './utils/notifications'
 import { getStoredToken } from './utils/googleCalendar'
 import { matchAllHolidaysToAllBrands } from './utils/matching'
+import { scrapeHolidaysForMonths } from './utils/webScraper'
+import { matchHolidaysWithAI } from './utils/aiMatching'
 
 const SAMPLE_BRANDS = [
   { id: '1',  name: 'Aesthetic Revival',          category: 'Spa & Wellness',        color: '#E8A020' },
@@ -29,6 +32,7 @@ const SAMPLE_BRANDS = [
 
 export default function App() {
   const [view, setView] = useState('schedule')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [brands, setBrands] = useLocalStorage('brands', SAMPLE_BRANDS)
   const [events, setEvents] = useLocalStorage('events', [])
   const [settings, setSettings] = useLocalStorage('settings', {
@@ -36,10 +40,12 @@ export default function App() {
     notificationsEnabled: false,
     googleToken: null,
     googleClientId: '',
+    geminiApiKey: '',
     lastFetch: null,
   })
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [fetching, setFetching] = useState(false)
+  const [fetchProgress, setFetchProgress] = useState('')
 
   useEffect(() => {
     if (settings.notificationsEnabled) checkNotifications(events, brands)
@@ -49,82 +55,108 @@ export default function App() {
     }
   }, [])
 
-  // Fetch all holidays → auto-match to brands → add directly to events
   const fetchHolidays = async () => {
     if (fetching) return
     setFetching(true)
+    setFetchProgress('Starting...')
+
     try {
+      // Build list of next 3 months
       const now = new Date()
-      const months = []
+      const monthList = []
       for (let i = 0; i < 3; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
-        months.push({ month: d.getMonth() + 1, year: d.getFullYear() })
+        monthList.push({ month: d.getMonth() + 1, year: d.getFullYear() })
       }
 
+      // Step 1: Scrape nationaltoday.com via CORS proxy
       let allHolidays = []
-      for (const { month, year } of months) {
-        const res = await fetch(`/api/fetch-holidays?month=${month}&year=${year}`)
-        if (!res.ok) continue
-        const data = await res.json()
-        allHolidays = allHolidays.concat(data.holidays || [])
+      try {
+        setFetchProgress('Reading nationaltoday.com...')
+        allHolidays = await scrapeHolidaysForMonths(monthList, setFetchProgress)
+      } catch (scrapeErr) {
+        // Fallback to Netlify static function
+        setFetchProgress('Using built-in database...')
+        for (const { month, year } of monthList) {
+          const res = await fetch(`/api/fetch-holidays?month=${month}&year=${year}`)
+          if (!res.ok) continue
+          const data = await res.json()
+          allHolidays = allHolidays.concat(data.holidays || [])
+        }
       }
 
       if (allHolidays.length === 0) {
-        showToast('No holidays found', 'Check the Netlify function is deployed', 'error')
+        showToast('No holidays found', 'Could not load holiday data', 'error')
         return
       }
 
-      // Build candidate holiday objects with IDs
+      setFetchProgress(`Loaded ${allHolidays.length} holidays — now matching to brands...`)
+
+      // Tag each holiday with a stable ID
       const candidates = allHolidays.map(h => ({
         ...h,
         id: `h_${h.date}_${h.title.replace(/\W+/g, '_')}`,
       }))
 
-      // Run smart matching — returns { holidayId: [brandId, ...] }
-      const matches = matchAllHolidaysToAllBrands(candidates, brands)
-
-      // Merge into events, skipping duplicates
+      // Remove already-stored ones
       const existingIds = new Set(events.map(e => e.id))
-      const newEvents = []
+      const newCandidates = candidates.filter(h => !existingIds.has(h.id))
 
-      for (const holiday of candidates) {
-        if (existingIds.has(holiday.id)) continue
-        const brandIds = matches[holiday.id] || []
-        if (brandIds.length === 0) continue // no brand matched — skip
+      if (newCandidates.length === 0) {
+        showToast('Up to date', 'No new holidays to add', 'info')
+        return
+      }
 
-        newEvents.push({
-          id: holiday.id,
-          title: holiday.title,
-          date: holiday.date,
-          description: holiday.description || '',
-          category: holiday.category || '',
-          tags: holiday.tags || '',
-          brandIds,
+      // Step 2: Match — AI if key available, else smart keyword matching
+      let matches = {}
+      if (settings.geminiApiKey) {
+        try {
+          setFetchProgress('AI is analysing holidays for each brand...')
+          matches = await matchHolidaysWithAI(newCandidates, brands, settings.geminiApiKey, setFetchProgress)
+          setFetchProgress('AI matching complete ✓')
+        } catch (aiErr) {
+          showToast('AI matching failed', aiErr.message + ' — falling back to keyword matching', 'error')
+          matches = matchAllHolidaysToAllBrands(newCandidates, brands)
+        }
+      } else {
+        setFetchProgress('Applying smart keyword matching...')
+        matches = matchAllHolidaysToAllBrands(newCandidates, brands)
+      }
+
+      // Build new events
+      const newEvents = newCandidates
+        .filter(h => (matches[h.id] || []).length > 0)
+        .map(h => ({
+          id: h.id,
+          title: h.title,
+          date: h.date,
+          description: h.description || '',
+          category: h.category || '',
+          tags: h.tags || '',
+          brandIds: matches[h.id],
           isManual: false,
           pushed: false,
           notified: false,
-          source: 'nationaltoday.com',
-          url: holiday.url || '',
-        })
-      }
+          url: h.url || '',
+        }))
 
-      if (newEvents.length > 0) {
-        setEvents(prev => [...prev, ...newEvents])
-        setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
-        showToast(
-          `${newEvents.length} holidays added ✓`,
-          `Auto-matched across ${brands.length} brands — see Brand Schedule`,
-          'success'
-        )
-        setView('schedule')
-      } else {
-        showToast('Up to date', 'No new holidays to add', 'info')
-      }
+      setEvents(prev => [...prev, ...newEvents])
+      setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
+
+      const method = settings.geminiApiKey ? 'AI' : 'keyword'
+      showToast(
+        `${newEvents.length} holidays matched ✓`,
+        `Used ${method} matching across ${brands.length} brands`,
+        'success'
+      )
+      setView('schedule')
+
     } catch (err) {
       console.error(err)
       showToast('Fetch failed', err.message, 'error')
     } finally {
       setFetching(false)
+      setFetchProgress('')
     }
   }
 
@@ -137,29 +169,31 @@ export default function App() {
   }
 
   const views = {
-    dashboard: (
-      <Dashboard
-        brands={brands} events={events} settings={settings}
-        onAddEvent={() => setShowAddEvent(true)}
-        onFetch={fetchHolidays} fetching={fetching}
-        setEvents={setEvents}
-        onGoSchedule={() => setView('schedule')}
-      />
-    ),
-    brands:   <BrandsView brands={brands} setBrands={setBrands} events={events} />,
-    schedule: <BrandScheduleView brands={brands} events={events} />,
-    calendar: <CalendarView brands={brands} events={events} />,
-    events:   <EventsView brands={brands} events={events} setEvents={setEvents} settings={settings} />,
-    settings: <Settings settings={settings} setSettings={setSettings} events={events} brands={brands} />,
+    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} />,
+    brands:    <BrandsView brands={brands} setBrands={setBrands} events={events} />,
+    schedule:  <BrandScheduleView brands={brands} events={events} />,
+    calendar:  <CalendarView brands={brands} events={events} />,
+    events:    <EventsView brands={brands} events={events} setEvents={setEvents} settings={settings} />,
+    settings:  <Settings settings={settings} setSettings={setSettings} events={events} brands={brands} />,
   }
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={setView} onAddEvent={() => setShowAddEvent(true)} />
+      <header className="mobile-header">
+        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+          <Menu size={22} />
+        </button>
+        <span className="mobile-logo">BrandTrack</span>
+        <button className="mobile-add-btn" onClick={() => setShowAddEvent(true)}>
+          <Plus size={13} /> Add
+        </button>
+      </header>
+
+      <Sidebar view={view} setView={setView} onAddEvent={() => setShowAddEvent(true)} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
       <main className="main-content">{views[view]}</main>
-      {showAddEvent && (
-        <AddEventModal brands={brands} onClose={() => setShowAddEvent(false)} onAdd={handleAddEvent} />
-      )}
+
+      {showAddEvent && <AddEventModal brands={brands} onClose={() => setShowAddEvent(false)} onAdd={handleAddEvent} />}
       <Toast />
     </div>
   )
