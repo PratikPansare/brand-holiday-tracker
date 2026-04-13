@@ -2,7 +2,7 @@
 // Free tier: 15 req/min, 1500 req/day — more than enough
 // Get a free key at: https://aistudio.google.com/app/apikey
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
 const BRAND_DESCRIPTIONS = {
   'Aesthetic Revival':          'A spa and wellness centre offering massages, facials, skincare treatments, aromatherapy, and beauty services. Focus on self-care, relaxation, and beauty.',
