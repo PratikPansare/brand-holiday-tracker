@@ -18,6 +18,11 @@
     X-Content-Type-Options = "nosniff"
 
 [[redirects]]
+  from = "/api/fetch-holidays"
+  to = "/.netlify/functions/fetch-holidays"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

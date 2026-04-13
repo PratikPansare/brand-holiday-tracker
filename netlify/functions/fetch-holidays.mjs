@@ -152,4 +152,4 @@ export default async (req, context) => {
   }
 }
 
-export const config = { path: '/api/fetch-holidays' }
+// Function available at: /.netlify/functions/fetch-holidays
