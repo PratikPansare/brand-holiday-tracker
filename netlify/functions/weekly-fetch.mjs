@@ -37,5 +37,6 @@ export default async (req, context) => {
 }
 
 export const config = {
+  path: '/api/weekly-fetch',
   schedule: '0 9 * * 1' // Every Monday at 9:00 AM UTC
 }

@@ -1,15 +1,12 @@
 import { format, isToday, isTomorrow, parseISO, isThisWeek, addDays } from 'date-fns'
-import { Plus, RefreshCw, Calendar, CalendarCheck, Tag, Zap } from 'lucide-react'
+import { Plus, RefreshCw, Calendar, CalendarCheck, ClipboardCheck } from 'lucide-react'
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, setEvents }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, setEvents, pendingCount, onGoReview }) {
   const today = new Date()
   const upcoming = events
-    .filter(e => {
-      const d = parseISO(e.date)
-      return d >= today && d <= addDays(today, 30)
-    })
+    .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 10)
 
@@ -30,13 +27,6 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
     }
   }
 
-  const dateLabel = (dateStr) => {
-    const d = parseISO(dateStr)
-    if (isToday(d)) return 'Today'
-    if (isTomorrow(d)) return 'Tomorrow'
-    return format(d, 'MMM d')
-  }
-
   return (
     <div>
       <div className="page-header">
@@ -55,6 +45,30 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
         </div>
       </div>
 
+      {/* Review banner */}
+      {pendingCount > 0 && (
+        <div onClick={onGoReview} style={{
+          background: 'var(--gold-dim)', border: '1px solid var(--gold-glow)',
+          borderRadius: 'var(--radius)', padding: '14px 18px',
+          marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14,
+          cursor: 'pointer', transition: 'background 0.15s ease',
+        }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(232,160,32,0.18)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--gold-dim)'}
+        >
+          <ClipboardCheck size={20} style={{ color: 'var(--gold)', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, color: 'var(--gold)', fontSize: 14 }}>
+              {pendingCount} holidays waiting for review
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--muted-light)', marginTop: 2 }}>
+              Assign brands and approve them to add to your events — click to review now
+            </div>
+          </div>
+          <span style={{ color: 'var(--gold)', fontSize: 20 }}>→</span>
+        </div>
+      )}
+
       <div className="stat-grid">
         <div className="stat-card" style={{ '--accent': 'var(--gold)' }}>
           <div className="stat-label">Total Brands</div>
@@ -72,9 +86,9 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
           <div className="stat-sub">Calendar entries</div>
         </div>
         <div className="stat-card" style={{ '--accent': '#E84055' }}>
-          <div className="stat-label">Manual Events</div>
-          <div className="stat-value">{manual}</div>
-          <div className="stat-sub">Added by you</div>
+          <div className="stat-label">Pending Review</div>
+          <div className="stat-value">{pendingCount}</div>
+          <div className="stat-sub">Need your attention</div>
         </div>
       </div>
 
@@ -89,7 +103,7 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
             <div className="empty-state">
               <Calendar size={40} />
               <h3>No upcoming events</h3>
-              <p>Fetch holidays or add events manually</p>
+              <p>Fetch holidays then approve them in the Review tab</p>
             </div>
           ) : (
             <div className="event-list">
@@ -103,7 +117,7 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
                     </div>
                     <div className="event-info">
                       <div className="event-title">{event.title}</div>
-                      <div className="event-brands" style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                         {eventBrands.map(b => (
                           <span key={b.id} className="brand-pill">
                             <span className="brand-dot" style={{ background: b.color }} />
@@ -130,22 +144,20 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
         </div>
 
         <div>
-          <div className="section-header">
-            <h2 className="section-title">Brands</h2>
-          </div>
+          <div className="section-header"><h2 className="section-title">Brands</h2></div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {brands.map(brand => {
               const brandEvents = events.filter(e => e.brandIds?.includes(brand.id))
-              const upcoming = brandEvents.filter(e => parseISO(e.date) >= today).length
+              const upcomingCount = brandEvents.filter(e => parseISO(e.date) >= today).length
               return (
                 <div key={brand.id} className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 3, height: 40, background: brand.color, borderRadius: 2, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13 }}>{brand.name}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brand.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{brand.category}</div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 20, color: 'var(--gold)' }}>{upcoming}</div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 20, color: 'var(--gold)' }}>{upcomingCount}</div>
                     <div style={{ fontSize: 10, color: 'var(--muted)' }}>upcoming</div>
                   </div>
                 </div>
@@ -157,3 +169,4 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
     </div>
   )
 }
+
