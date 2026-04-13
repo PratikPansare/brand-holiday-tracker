@@ -13,7 +13,7 @@ import { useLocalStorage } from './hooks/useLocalStorage'
 import { checkNotifications, scheduleNotification, showToast } from './utils/notifications'
 import { getStoredToken } from './utils/googleCalendar'
 import { matchAllHolidaysToAllBrands, classifyHolidays } from './utils/matching'
-import { scrapeHolidaysForMonths } from './utils/webScraper'
+import { getHolidaysForMonths } from './utils/holidayDatabase'
 import { matchHolidaysWithAI } from './utils/aiMatching'
 
 const SAMPLE_BRANDS = [
@@ -72,24 +72,12 @@ export default function App() {
       const geminiCallsNeeded = Math.ceil((monthList.length * 35) / 60)
       setFetchProgress(`Fetching ${monthsToFetch} month${monthsToFetch > 1 ? 's' : ''} (~${geminiCallsNeeded} AI call${geminiCallsNeeded > 1 ? 's' : ''})...`)
 
-      // Step 1: Scrape nationaltoday.com via CORS proxy
-      let allHolidays = []
-      try {
-        setFetchProgress('Reading nationaltoday.com...')
-        allHolidays = await scrapeHolidaysForMonths(monthList, setFetchProgress)
-      } catch (scrapeErr) {
-        // Fallback to Netlify static function
-        setFetchProgress('Using built-in database...')
-        for (const { month, year } of monthList) {
-          const res = await fetch(`/api/fetch-holidays?month=${month}&year=${year}`)
-          if (!res.ok) continue
-          const data = await res.json()
-          allHolidays = allHolidays.concat(data.holidays || [])
-        }
-      }
+      // Load holidays instantly from built-in database — no network needed
+      setFetchProgress(`Loading ${monthsToFetch} month${monthsToFetch > 1 ? 's' : ''} of holidays...`)
+      const allHolidays = getHolidaysForMonths(monthList)
 
       if (allHolidays.length === 0) {
-        showToast('No holidays found', 'Could not load holiday data', 'error')
+        showToast('No holidays found', 'Database error — please refresh the page', 'error')
         return
       }
 
