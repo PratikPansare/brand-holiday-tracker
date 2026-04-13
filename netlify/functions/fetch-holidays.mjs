@@ -1,9 +1,15 @@
 // netlify/functions/fetch-holidays.mjs
-// Scrapes nationaltoday.com for holidays by month
+// Scrapes nationaltoday.com/{month}-holidays/ page
+// Real page structure: <table> with Date | Holiday | Category | Tags columns
 
 const MONTH_NAMES = [
   '', 'january', 'february', 'march', 'april', 'may', 'june',
   'july', 'august', 'september', 'october', 'november', 'december'
+]
+
+const MONTH_SHORT = [
+  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ]
 
 export default async (req, context) => {
@@ -19,128 +25,39 @@ export default async (req, context) => {
   }
 
   const monthName = MONTH_NAMES[month]
-  const holidays = []
+  const pageUrl = `https://nationaltoday.com/${monthName}-holidays/`
 
   try {
-    // Fetch the month overview page
-    const monthUrl = `https://nationaltoday.com/${monthName}/`
-    const res = await fetch(monthUrl, {
+    const res = await fetch(pageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BrandTracker/1.0)',
-        'Accept': 'text/html',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
       }
     })
 
-    if (!res.ok) throw new Error(`nationaltoday.com returned ${res.status}`)
-
-    const html = await res.text()
-
-    // Parse holiday entries from the page
-    // nationaltoday.com uses structured markup with holiday cards
-    const holidayPattern = /<a[^>]+href="https:\/\/nationaltoday\.com\/([^"]+)\/"[^>]*>[\s\S]*?<h[23][^>]*>([^<]+)<\/h[23]>/gi
-    const datePattern = /(\w+)-(\d+)/
-
-    let match
-    const seen = new Set()
-
-    while ((match = holidayPattern.exec(html)) !== null) {
-      const slug = match[1]
-      const title = match[2].trim().replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&rsquo;/g, "'")
-
-      if (seen.has(slug) || !slug.includes('-')) continue
-      seen.add(slug)
-
-      // Parse date from slug e.g. "april-7" or "national-beer-day-april-7"
-      const slugParts = slug.split('-')
-      let dayNum = null
-      let monthNum = month
-
-      // Try to find month + day pattern at end of slug
-      for (let i = slugParts.length - 1; i >= 0; i--) {
-        const num = parseInt(slugParts[i])
-        if (!isNaN(num) && num >= 1 && num <= 31) {
-          dayNum = num
-          // check if previous part is a month name
-          if (i > 0) {
-            const possibleMonth = MONTH_NAMES.indexOf(slugParts[i - 1])
-            if (possibleMonth > 0) monthNum = possibleMonth
-          }
-          break
-        }
-      }
-
-      if (!dayNum) continue
-
-      // Build ISO date string
-      const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
-
-      if (!title || title.length < 3) continue
-
-      holidays.push({
-        title,
-        date: dateStr,
-        slug,
-        url: `https://nationaltoday.com/${slug}/`,
-        description: `Celebrate ${title} with a themed social media post.`,
-        tags: slug.replace(/-/g, ' '),
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: `Failed to fetch ${pageUrl}: ${res.status}`, holidays: [] }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
       })
     }
 
-    // Also try alternative pattern for list items
-    const listPattern = /<li[^>]*class="[^"]*holiday[^"]*"[^>]*>[\s\S]*?<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
-    while ((match = listPattern.exec(html)) !== null) {
-      const href = match[1]
-      const rawTitle = match[2].replace(/<[^>]+>/g, '').trim()
-      const slug = href.split('/').filter(Boolean).pop()
-      if (!slug || seen.has(slug) || !rawTitle) continue
-      seen.add(slug)
-
-      const title = rawTitle.replace(/&amp;/g, '&').replace(/&#039;/g, "'").replace(/&rsquo;/g, "'")
-      // Try to get date from slug
-      const parts = slug.split('-')
-      let dayNum = null
-      let monthNum = month
-      for (let i = parts.length - 1; i >= 0; i--) {
-        const num = parseInt(parts[i])
-        if (!isNaN(num) && num >= 1 && num <= 31) {
-          dayNum = num
-          if (i > 0) {
-            const pm = MONTH_NAMES.indexOf(parts[i - 1])
-            if (pm > 0) monthNum = pm
-          }
-          break
-        }
-      }
-      if (!dayNum || title.length < 3) continue
-      const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`
-      holidays.push({ title, date: dateStr, slug, url: href, description: `Celebrate ${title}.`, tags: slug.replace(/-/g, ' ') })
-    }
-
-    // Deduplicate by date+title
-    const deduped = []
-    const dedupeSet = new Set()
-    for (const h of holidays) {
-      const key = h.date + '|' + h.title.toLowerCase()
-      if (!dedupeSet.has(key)) {
-        dedupeSet.add(key)
-        deduped.push(h)
-      }
-    }
-
-    deduped.sort((a, b) => a.date.localeCompare(b.date))
+    const html = await res.text()
+    const holidays = parseHolidays(html, month, year)
 
     return new Response(JSON.stringify({
-      holidays: deduped,
+      holidays,
       month,
       year,
-      count: deduped.length,
-      source: monthUrl
+      count: holidays.length,
+      source: pageUrl,
     }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, s-maxage=3600'
+        'Cache-Control': 'public, s-maxage=3600',
       }
     })
 
@@ -152,4 +69,152 @@ export default async (req, context) => {
   }
 }
 
-// Function available at: /.netlify/functions/fetch-holidays
+function stripTags(html) {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&#039;/g, "'")
+    .replace(/&rsquo;/g, "'")
+    .replace(/&ndash;/g, '-')
+    .replace(/&lsquo;/g, "'")
+    .replace(/&rdquo;/g, '"')
+    .replace(/&ldquo;/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseHolidays(html, month, year) {
+  const holidays = []
+  const monthShort = MONTH_SHORT[month]
+
+  // ── Strategy 1: Parse the HTML table ─────────────────────────────────────
+  // The nationaltoday.com holiday page renders a table like:
+  //   Date row:    <td>Apr 1 Wednesday</td><td></td><td></td><td></td>
+  //   Holiday row: <td></td><td><a href="/april-fools-day/">April Fools' Day</a></td><td>Special Interest</td><td>Activities, Fun</td>
+
+  let currentDay = null
+  const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
+  let trMatch
+
+  while ((trMatch = trRe.exec(html)) !== null) {
+    const rowHtml = trMatch[1]
+    const cells = []
+    const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi
+    let tdMatch
+    while ((tdMatch = tdRe.exec(rowHtml)) !== null) {
+      cells.push(tdMatch[1])
+    }
+    if (cells.length < 2) continue
+
+    const cell0text = stripTags(cells[0])
+    const cell1 = cells[1] || ''
+    const cell2 = cells[2] || ''
+    const cell3 = cells[3] || ''
+
+    // Date row: first cell starts with short month name like "Apr 1" or "Apr 1 Wednesday"
+    if (cell0text && cell0text.startsWith(monthShort)) {
+      const dayMatch = cell0text.match(/\d+/)
+      if (dayMatch) currentDay = parseInt(dayMatch[0])
+      continue
+    }
+
+    // Holiday row: first cell empty, second cell has the holiday link
+    if (!cell0text.trim() && cell1.includes('<a') && currentDay) {
+      const linkMatch = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(cell1)
+      if (!linkMatch) continue
+
+      const href = linkMatch[1]
+      const title = stripTags(linkMatch[2])
+      if (!title || title.length < 2 || title.toLowerCase() === 'holiday') continue
+
+      const category = stripTags(cell2)
+      const tags = stripTags(cell3)
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
+      const fullUrl = href.startsWith('http') ? href : `https://nationaltoday.com${href}`
+
+      holidays.push({
+        title,
+        date: dateStr,
+        category: category || '',
+        tags: tags || '',
+        url: fullUrl,
+        description: [title, category, tags].filter(Boolean).join(' · '),
+      })
+    }
+  }
+
+  // ── Strategy 2: Fallback via day-by-day date anchor tracking ─────────────
+  // If table parsing found nothing (e.g. HTML structure changed), scan for
+  // holiday links anchored near date markers like /april-13/
+  if (holidays.length === 0) {
+    const SKIP_SLUGS = new Set([
+      'today','reminders','login-page','sign-up','national-day-topics',
+      'animal-holidays','arts-entertainment-holidays','cause-holidays',
+      'cultural-holidays','federal-holidays','food-beverage-holidays',
+      'health-holidays','relationship-holidays','religious-holidays',
+      'special-interest-holidays','fun-holidays',
+    ])
+
+    // Collect date anchor positions: href="/april-13/" → day 13
+    const dateAnchorRe = /href="https?:\/\/nationaltoday\.com\/[a-z]+-(\d{1,2})(?:-holidays)?\/"[^>]*>/gi
+    let da
+    const datePositions = []
+    while ((da = dateAnchorRe.exec(html)) !== null) {
+      const d = parseInt(da[1])
+      if (d >= 1 && d <= 31) datePositions.push({ pos: da.index, day: d })
+    }
+
+    const linkRe = /href="https?:\/\/nationaltoday\.com\/([^"\/]+)\/"[^>]*>([^<]{3,80})<\/a>/gi
+    const seen = new Set()
+    let m
+
+    while ((m = linkRe.exec(html)) !== null) {
+      const slug = m[1]
+      const title = m[2].trim()
+
+      if (seen.has(slug)) continue
+      if (SKIP_SLUGS.has(slug)) continue
+      // Skip month pages, birthday pages, city pages, category pages
+      if (/-(holidays|birthdays)$/.test(slug)) continue
+      if (/^(january|february|march|april|may|june|july|august|september|october|november|december)-/.test(slug)) continue
+      if (!title || title.length < 3) continue
+
+      seen.add(slug)
+
+      // Find nearest preceding date anchor
+      let day = null
+      for (let i = datePositions.length - 1; i >= 0; i--) {
+        if (datePositions[i].pos < m.index) {
+          day = datePositions[i].day
+          break
+        }
+      }
+      if (!day) continue
+
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      holidays.push({
+        title,
+        date: dateStr,
+        category: '',
+        tags: '',
+        url: `https://nationaltoday.com/${slug}/`,
+        description: title,
+      })
+    }
+  }
+
+  // Deduplicate by date + title
+  const seen = new Set()
+  const deduped = []
+  for (const h of holidays) {
+    const key = h.date + '|' + h.title.toLowerCase()
+    if (!seen.has(key)) {
+      seen.add(key)
+      deduped.push(h)
+    }
+  }
+
+  return deduped.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// Available at: /.netlify/functions/fetch-holidays (redirected from /api/fetch-holidays)
