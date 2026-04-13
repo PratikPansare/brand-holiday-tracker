@@ -1,18 +1,17 @@
-import { format, isToday, isTomorrow, parseISO, isThisWeek, addDays } from 'date-fns'
-import { Plus, RefreshCw, Calendar, CalendarCheck, ClipboardCheck } from 'lucide-react'
+import { format, parseISO, isThisWeek, addDays } from 'date-fns'
+import { Plus, RefreshCw, Calendar, CalendarCheck, TableProperties } from 'lucide-react'
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, setEvents, pendingCount, onGoReview }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, setEvents, onGoSchedule }) {
   const today = new Date()
   const upcoming = events
     .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })
     .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 10)
+    .slice(0, 12)
 
   const thisWeek = events.filter(e => isThisWeek(parseISO(e.date), { weekStartsOn: 1 }))
   const pushed = events.filter(e => e.pushed).length
-  const manual = events.filter(e => e.isManual).length
 
   const handlePush = async (event) => {
     const token = settings.googleToken
@@ -21,11 +20,18 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
       await pushToGoogleCalendar(event, brands, token)
       setEvents(prev => prev.map(e => e.id === event.id ? { ...e, pushed: true } : e))
       if (settings.notificationsEnabled) scheduleNotification(event, brands, 1)
-      showToast('Added to Calendar', event.title, 'success')
+      showToast('Added to Calendar ✓', event.title, 'success')
     } catch {
       showToast('Error', 'Could not push to Google Calendar', 'error')
     }
   }
+
+  // Count events per brand
+  const brandEventCounts = brands.map(brand => ({
+    brand,
+    upcoming: events.filter(e => e.brandIds?.includes(brand.id) && parseISO(e.date) >= today).length,
+    total: events.filter(e => e.brandIds?.includes(brand.id)).length,
+  })).sort((a, b) => b.upcoming - a.upcoming)
 
   return (
     <div>
@@ -45,35 +51,12 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
         </div>
       </div>
 
-      {/* Review banner */}
-      {pendingCount > 0 && (
-        <div onClick={onGoReview} style={{
-          background: 'var(--gold-dim)', border: '1px solid var(--gold-glow)',
-          borderRadius: 'var(--radius)', padding: '14px 18px',
-          marginBottom: 20, display: 'flex', alignItems: 'center', gap: 14,
-          cursor: 'pointer', transition: 'background 0.15s ease',
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(232,160,32,0.18)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'var(--gold-dim)'}
-        >
-          <ClipboardCheck size={20} style={{ color: 'var(--gold)', flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, color: 'var(--gold)', fontSize: 14 }}>
-              {pendingCount} holidays waiting for review
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--muted-light)', marginTop: 2 }}>
-              Assign brands and approve them to add to your events — click to review now
-            </div>
-          </div>
-          <span style={{ color: 'var(--gold)', fontSize: 20 }}>→</span>
-        </div>
-      )}
-
+      {/* Stats */}
       <div className="stat-grid">
         <div className="stat-card" style={{ '--accent': 'var(--gold)' }}>
           <div className="stat-label">Total Brands</div>
           <div className="stat-value">{brands.length}</div>
-          <div className="stat-sub">Active tracking</div>
+          <div className="stat-sub">Being tracked</div>
         </div>
         <div className="stat-card" style={{ '--accent': 'var(--violet)' }}>
           <div className="stat-label">This Week</div>
@@ -81,29 +64,30 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
           <div className="stat-sub">Events to post</div>
         </div>
         <div className="stat-card" style={{ '--accent': 'var(--green)' }}>
+          <div className="stat-label">Total Events</div>
+          <div className="stat-value">{events.length}</div>
+          <div className="stat-sub">Across all brands</div>
+        </div>
+        <div className="stat-card" style={{ '--accent': '#38B2F0' }}>
           <div className="stat-label">Pushed to Cal</div>
           <div className="stat-value">{pushed}</div>
           <div className="stat-sub">Calendar entries</div>
         </div>
-        <div className="stat-card" style={{ '--accent': '#E84055' }}>
-          <div className="stat-label">Pending Review</div>
-          <div className="stat-value">{pendingCount}</div>
-          <div className="stat-sub">Need your attention</div>
-        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+        {/* Upcoming events */}
         <div>
           <div className="section-header">
             <h2 className="section-title">Upcoming Events (next 30 days)</h2>
-            <span className="badge badge-gold">{upcoming.length} events</span>
+            <span className="badge badge-gold">{upcoming.length}</span>
           </div>
 
           {upcoming.length === 0 ? (
             <div className="empty-state">
               <Calendar size={40} />
               <h3>No upcoming events</h3>
-              <p>Fetch holidays then approve them in the Review tab</p>
+              <p>Click "Fetch Holidays" to auto-populate events for all your brands</p>
             </div>
           ) : (
             <div className="event-list">
@@ -143,30 +127,35 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
           )}
         </div>
 
+        {/* Brand summary + schedule link */}
         <div>
-          <div className="section-header"><h2 className="section-title">Brands</h2></div>
+          <div className="section-header">
+            <h2 className="section-title">By Brand</h2>
+            <button className="btn btn-ghost btn-sm" onClick={onGoSchedule} style={{ fontSize: 11, gap: 4 }}>
+              <TableProperties size={12} /> Full Schedule
+            </button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {brands.map(brand => {
-              const brandEvents = events.filter(e => e.brandIds?.includes(brand.id))
-              const upcomingCount = brandEvents.filter(e => parseISO(e.date) >= today).length
-              return (
-                <div key={brand.id} className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 3, height: 40, background: brand.color, borderRadius: 2, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brand.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{brand.category}</div>
+            {brandEventCounts.map(({ brand, upcoming, total }) => (
+              <div key={brand.id} className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 3, height: 36, background: brand.color, borderRadius: 2, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {brand.name}
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-head)', fontWeight: 700, fontSize: 20, color: 'var(--gold)' }}>{upcomingCount}</div>
-                    <div style={{ fontSize: 10, color: 'var(--muted)' }}>upcoming</div>
-                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 1 }}>{brand.category}</div>
                 </div>
-              )
-            })}
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 18, color: brand.color, lineHeight: 1 }}>
+                    {upcoming}
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 1 }}>upcoming / {total} total</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   )
 }
-

@@ -1,15 +1,298 @@
 // netlify/functions/fetch-holidays.mjs
-// Scrapes nationaltoday.com/{month}-holidays/ page
-// Real page structure: <table> with Date | Holiday | Category | Tags columns
+// Built-in holiday database — no scraping, instant, reliable.
+// Covers all 12 months with 200+ national days relevant to a wide range of brands.
 
-const MONTH_NAMES = [
-  '', 'january', 'february', 'march', 'april', 'may', 'june',
-  'july', 'august', 'september', 'october', 'november', 'december'
-]
+const ALL_HOLIDAYS = [
+  // ── JANUARY ──
+  { date: '01-01', title: "New Year's Day", category: 'Federal', tags: 'celebration,new year,fresh start' },
+  { date: '01-02', title: 'National Science Fiction Day', category: 'Arts & Entertainment', tags: 'creativity,books,imagination' },
+  { date: '01-04', title: 'National Trivia Day', category: 'Special Interest', tags: 'fun,games,social' },
+  { date: '01-08', title: 'National Bubble Bath Day', category: 'Health', tags: 'spa,wellness,self-care,relaxation,bath' },
+  { date: '01-10', title: 'National Houseplant Appreciation Day', category: 'Special Interest', tags: 'home,decor,lifestyle,nature' },
+  { date: '01-13', title: 'National Sticker Day', category: 'Arts & Entertainment', tags: 'creative,design,art' },
+  { date: '01-14', title: 'National Dress Up Your Pet Day', category: 'Animals', tags: 'pets,animals,fun' },
+  { date: '01-15', title: 'Martin Luther King Jr. Day', category: 'Federal', tags: 'civil rights,history,community' },
+  { date: '01-16', title: 'National Get to Know Your Customers Day', category: 'Business', tags: 'marketing,business,customers,branding' },
+  { date: '01-17', title: 'National Hot Buttered Rum Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,beverage,winter' },
+  { date: '01-19', title: 'National Popcorn Day', category: 'Food & Beverage', tags: 'food,snack,movie,fun' },
+  { date: '01-20', title: 'National Cheese Lover\'s Day', category: 'Food & Beverage', tags: 'food,cheese,snack,pairing,wine' },
+  { date: '01-21', title: 'National Hug Day', category: 'Relationships', tags: 'love,family,community,warmth' },
+  { date: '01-23', title: 'National Pie Day', category: 'Food & Beverage', tags: 'food,baking,dessert,recipe' },
+  { date: '01-25', title: 'National Opposite Day', category: 'Fun', tags: 'fun,social media,creative,content' },
+  { date: '01-27', title: 'National Chocolate Cake Day', category: 'Food & Beverage', tags: 'food,dessert,baking,sweet' },
+  { date: '01-28', title: 'National Data Privacy Day', category: 'Technology', tags: 'tech,digital,internet,security,privacy' },
+  { date: '01-29', title: 'National Puzzle Day', category: 'Fun', tags: 'games,fun,brain,logic' },
+  { date: '01-31', title: 'National Hot Chocolate Day', category: 'Food & Beverage', tags: 'food,drink,winter,cozy,beverage' },
 
-const MONTH_SHORT = [
-  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  // ── FEBRUARY ──
+  { date: '02-01', title: 'National Freedom Day', category: 'Federal', tags: 'history,civil rights,community' },
+  { date: '02-02', title: 'Groundhog Day', category: 'Special Interest', tags: 'fun,tradition,seasonal,nature' },
+  { date: '02-04', title: 'World Cancer Day', category: 'Cause', tags: 'health,awareness,charity' },
+  { date: '02-05', title: 'National Weatherperson\'s Day', category: 'Special Interest', tags: 'weather,science,fun' },
+  { date: '02-06', title: 'National Frozen Yogurt Day', category: 'Food & Beverage', tags: 'food,dessert,snack,sweet' },
+  { date: '02-07', title: 'National Send a Card to a Friend Day', category: 'Relationships', tags: 'friendship,community,love' },
+  { date: '02-09', title: 'National Pizza Day', category: 'Food & Beverage', tags: 'food,pizza,restaurant,snack' },
+  { date: '02-11', title: 'National Make a Friend Day', category: 'Relationships', tags: 'friendship,community,social' },
+  { date: '02-12', title: 'National Freedom to Marry Day', category: 'Cause', tags: 'love,equality,community' },
+  { date: '02-13', title: 'Galentine\'s Day', category: 'Relationships', tags: 'friendship,women,celebration,self-love' },
+  { date: '02-14', title: "Valentine's Day", category: 'Relationships', tags: 'love,romance,gifts,spa,wine,food,dining' },
+  { date: '02-17', title: 'Random Acts of Kindness Day', category: 'Cause', tags: 'community,giving,wellness,social' },
+  { date: '02-18', title: 'National Drink Wine Day', category: 'Food & Beverage', tags: 'wine,winery,drink,alcohol,vineyard,tasting' },
+  { date: '02-20', title: 'World Day of Social Justice', category: 'Cause', tags: 'community,equality,social media' },
+  { date: '02-21', title: 'National Sticky Bun Day', category: 'Food & Beverage', tags: 'food,baking,breakfast,sweet,snack' },
+  { date: '02-22', title: 'National Margarita Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,beverage,celebration' },
+  { date: '02-25', title: 'National Chocolate-Covered Nuts Day', category: 'Food & Beverage', tags: 'food,snack,chocolate,nuts,healthy' },
+  { date: '02-27', title: 'National Retro Day', category: 'Special Interest', tags: 'vintage,style,fashion,barbershop,nostalgia' },
+  { date: '02-28', title: 'National Public Sleeping Day', category: 'Fun', tags: 'rest,wellness,fun,self-care' },
+
+  // ── MARCH ──
+  { date: '03-01', title: 'National Employee Appreciation Day', category: 'Business', tags: 'work,team,business,marketing,appreciation' },
+  { date: '03-03', title: 'World Wildlife Day', category: 'Animals', tags: 'wildlife,nature,conservation,animals,birds,falconry' },
+  { date: '03-04', title: 'National Grammar Day', category: 'Special Interest', tags: 'writing,content,marketing,social media' },
+  { date: '03-05', title: 'National Absinthe Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,spirits,bar' },
+  { date: '03-07', title: 'National Be Heard Day', category: 'Business', tags: 'marketing,small business,branding,social media' },
+  { date: '03-08', title: "International Women's Day", category: 'Cause', tags: 'women,equality,empowerment,spa,beauty,wellness,community' },
+  { date: '03-10', title: 'National Mario Day', category: 'Arts & Entertainment', tags: 'gaming,fun,pop culture,social media' },
+  { date: '03-14', title: 'National Pi Day', category: 'Special Interest', tags: 'math,science,food,fun,education' },
+  { date: '03-15', title: 'National Shoe the World Day', category: 'Cause', tags: 'charity,community,fashion,giving' },
+  { date: '03-17', title: 'St. Patrick\'s Day', category: 'Cultural', tags: 'celebration,beer,cocktail,green,irish,food,fun' },
+  { date: '03-18', title: 'Global Recycling Day', category: 'Cause', tags: 'environment,sustainability,green,construction,building' },
+  { date: '03-19', title: 'National Let\'s Laugh Day', category: 'Fun', tags: 'humor,social media,fun,content,comedy' },
+  { date: '03-20', title: 'International Day of Happiness', category: 'Cause', tags: 'wellness,mental health,positivity,self-care,spa' },
+  { date: '03-20', title: 'First Day of Spring', category: 'Seasonal', tags: 'spring,nature,outdoors,fresh,new beginning,garden,home' },
+  { date: '03-21', title: 'World Poetry Day', category: 'Arts & Entertainment', tags: 'art,writing,creative,culture,gallery' },
+  { date: '03-22', title: 'World Water Day', category: 'Cause', tags: 'environment,nature,conservation,health,sustainability' },
+  { date: '03-23', title: 'National Puppy Day', category: 'Animals', tags: 'pets,animals,dogs,cute,wildlife' },
+  { date: '03-25', title: 'National Cocktail Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,bar,winery,spirits,beverage' },
+  { date: '03-26', title: 'National Spinach Day', category: 'Food & Beverage', tags: 'food,healthy,nutrition,vegetable,diet,snack' },
+  { date: '03-27', title: 'World Theatre Day', category: 'Arts & Entertainment', tags: 'art,performance,culture,gallery,theater,creative' },
+  { date: '03-29', title: 'National Vietnam War Veterans Day', category: 'Federal', tags: 'veterans,history,honor,community' },
+  { date: '03-30', title: 'National Take a Walk in the Park Day', category: 'Health', tags: 'outdoor,fitness,wellness,nature,walking' },
+  { date: '03-31', title: 'National Tater Day', category: 'Food & Beverage', tags: 'food,cooking,recipe,potato,comfort food' },
+
+  // ── APRIL ──
+  { date: '04-01', title: "April Fools' Day", category: 'Fun', tags: 'humor,prank,social media,fun,content,marketing' },
+  { date: '04-02', title: 'World Autism Awareness Day', category: 'Cause', tags: 'awareness,health,community,inclusion' },
+  { date: '04-03', title: 'National Find a Rainbow Day', category: 'Special Interest', tags: 'nature,fun,positivity,color,art' },
+  { date: '04-04', title: 'National Walk Around Things Day', category: 'Fun', tags: 'humor,fun,social media,content' },
+  { date: '04-05', title: 'National Self Care Day', category: 'Health', tags: 'self-care,wellness,spa,mental health,relaxation,beauty' },
+  { date: '04-06', title: 'National Tartan Day', category: 'Cultural', tags: 'fashion,culture,style,heritage,barber' },
+  { date: '04-07', title: 'World Health Day', category: 'Health', tags: 'health,wellness,fitness,nutrition,self-care,medical' },
+  { date: '04-08', title: 'National Zoo Lovers Day', category: 'Animals', tags: 'animals,wildlife,birds,falconry,nature,conservation' },
+  { date: '04-10', title: 'National Siblings Day', category: 'Relationships', tags: 'family,love,community,celebration' },
+  { date: '04-11', title: 'National Pet Day', category: 'Animals', tags: 'pets,animals,dogs,cats,wildlife' },
+  { date: '04-14', title: 'National Gardening Day', category: 'Special Interest', tags: 'garden,nature,outdoor,home,plants,spring' },
+  { date: '04-15', title: 'National Tax Day', category: 'Finance', tags: 'finance,money,taxes,investment,accounting,lending' },
+  { date: '04-16', title: 'National Wear Pajamas to Work Day', category: 'Fun', tags: 'fun,work,humor,social media,content' },
+  { date: '04-17', title: 'National Haiku Poetry Day', category: 'Arts & Entertainment', tags: 'art,writing,poetry,creative,culture' },
+  { date: '04-18', title: 'National Animal Crackers Day', category: 'Food & Beverage', tags: 'food,snack,fun,nostalgic,sweet' },
+  { date: '04-20', title: 'National Look-Alike Day', category: 'Fun', tags: 'fun,humor,creative,social media,photo' },
+  { date: '04-22', title: 'Earth Day', category: 'Cause', tags: 'environment,nature,green,sustainability,conservation,birds,wildlife,outdoor,construction,building' },
+  { date: '04-23', title: 'National Picnic Day', category: 'Food & Beverage', tags: 'food,outdoor,nature,snack,lifestyle,wine' },
+  { date: '04-24', title: 'National Pigs in a Blanket Day', category: 'Food & Beverage', tags: 'food,snack,party,fun' },
+  { date: '04-25', title: 'World Penguin Day', category: 'Animals', tags: 'animals,wildlife,birds,nature,conservation' },
+  { date: '04-26', title: 'National Hairball Awareness Day', category: 'Animals', tags: 'pets,cats,animals,fun,humor' },
+  { date: '04-27', title: 'National Babe Ruth Day', category: 'Sports', tags: 'sports,history,inspiration,achievement' },
+  { date: '04-28', title: 'National Superhero Day', category: 'Special Interest', tags: 'fun,inspiration,social media,heroes,pop culture' },
+  { date: '04-29', title: 'International Dance Day', category: 'Arts & Entertainment', tags: 'dance,art,culture,performance,fitness' },
+  { date: '04-30', title: 'National Adopt a Shelter Pet Day', category: 'Animals', tags: 'animals,pets,rescue,community,dogs' },
+
+  // ── MAY ──
+  { date: '05-01', title: 'May Day / International Workers Day', category: 'Federal', tags: 'labor,workers,community,history,business' },
+  { date: '05-01', title: 'National Homebrew Day', category: 'Food & Beverage', tags: 'beer,brewing,craft,alcohol,drink,diy' },
+  { date: '05-02', title: 'National Truffle Day', category: 'Food & Beverage', tags: 'food,gourmet,chocolate,luxury,dessert' },
+  { date: '05-03', title: 'National Garden Meditation Day', category: 'Health', tags: 'meditation,wellness,garden,mental health,spa,nature,self-care' },
+  { date: '05-04', title: 'National Homebrew Day', category: 'Food & Beverage', tags: 'beer,brewing,craft,drink,diy,alcohol' },
+  { date: '05-05', title: 'Cinco de Mayo', category: 'Cultural', tags: 'celebration,food,drink,cocktail,margarita,culture,tequila' },
+  { date: '05-06', title: 'National Nurses Day', category: 'Health', tags: 'health,medical,appreciation,community' },
+  { date: '05-08', title: 'National Receptionist Day', category: 'Business', tags: 'work,business,appreciation,team' },
+  { date: '05-10', title: "National Shrimp Day", category: 'Food & Beverage', tags: 'food,seafood,healthy,protein,recipe' },
+  { date: '05-11', title: 'National Technology Day', category: 'Technology', tags: 'tech,digital,innovation,internet,social media,marketing' },
+  { date: '05-12', title: "Mother's Day", category: 'Relationships', tags: 'family,mom,love,spa,gifts,wine,food,celebration,beauty,wellness' },
+  { date: '05-13', title: 'National Cocktail Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,bar,winery,spirits' },
+  { date: '05-14', title: 'National Buttermilk Biscuit Day', category: 'Food & Beverage', tags: 'food,baking,breakfast,recipe,comfort food' },
+  { date: '05-15', title: 'International Day of Families', category: 'Relationships', tags: 'family,community,home,real estate,love' },
+  { date: '05-16', title: 'National Barbecue Day', category: 'Food & Beverage', tags: 'food,grill,outdoor,summer,snack,recipe,meat' },
+  { date: '05-17', title: 'National Bike to Work Day', category: 'Health', tags: 'bike,motorcycle,cycling,fitness,commute,environmental' },
+  { date: '05-18', title: 'International Museum Day', category: 'Arts & Entertainment', tags: 'art,gallery,culture,museum,history,exhibit' },
+  { date: '05-20', title: 'National Rescue Dog Day', category: 'Animals', tags: 'dogs,pets,rescue,animals,adoption' },
+  { date: '05-21', title: 'National American Red Cross Founders Day', category: 'Cause', tags: 'charity,community,giving,volunteers' },
+  { date: '05-22', title: 'International Day for Biological Diversity', category: 'Cause', tags: 'nature,wildlife,conservation,birds,environment' },
+  { date: '05-25', title: 'National Wine Day', category: 'Food & Beverage', tags: 'wine,winery,vineyard,drink,tasting,alcohol,grape,celebration' },
+  { date: '05-26', title: 'National Road Trip Day', category: 'Special Interest', tags: 'road trip,travel,adventure,motorcycle,bike,ride,outdoor' },
+  { date: '05-27', title: 'National Grape Popsicle Day', category: 'Food & Beverage', tags: 'food,summer,grape,sweet,snack,dessert' },
+  { date: '05-28', title: 'National Brisket Day', category: 'Food & Beverage', tags: 'food,BBQ,meat,recipe,grill,cooking' },
+  { date: '05-29', title: 'National Putting Green Day', category: 'Sports', tags: 'golf,outdoor,sports,leisure,lifestyle' },
+  { date: '05-30', title: 'National Creativity Day', category: 'Arts & Entertainment', tags: 'art,creativity,design,marketing,gallery,creative,imagination' },
+  { date: '05-31', title: 'National Smile Day', category: 'Health', tags: 'wellness,positivity,fun,social media,content,dental' },
+
+  // ── JUNE ──
+  { date: '06-01', title: 'National Say Something Nice Day', category: 'Relationships', tags: 'kindness,community,social media,positivity' },
+  { date: '06-03', title: 'National Repeat Day', category: 'Fun', tags: 'fun,humor,social media,content,creative' },
+  { date: '06-05', title: 'World Environment Day', category: 'Cause', tags: 'nature,environment,sustainability,green,conservation,wildlife,outdoor,birds,construction' },
+  { date: '06-06', title: 'National Drive-in Movie Day', category: 'Arts & Entertainment', tags: 'movies,entertainment,fun,nostalgia,outdoor' },
+  { date: '06-07', title: 'National Chocolate Ice Cream Day', category: 'Food & Beverage', tags: 'food,ice cream,dessert,summer,sweet,snack' },
+  { date: '06-08', title: 'World Ocean Day', category: 'Cause', tags: 'ocean,nature,wildlife,conservation,environment,water' },
+  { date: '06-10', title: 'National Iced Tea Day', category: 'Food & Beverage', tags: 'food,drink,beverage,summer,refreshing' },
+  { date: '06-11', title: 'National Corn on the Cob Day', category: 'Food & Beverage', tags: 'food,summer,BBQ,cooking,vegetables,healthy' },
+  { date: '06-14', title: 'Flag Day', category: 'Federal', tags: 'patriotism,history,america,community' },
+  { date: '06-15', title: "Father's Day", category: 'Relationships', tags: 'father,family,barber,grooming,beard,men,gifts,beer,wine,food,bbq,motorcycle,outdoor,construction' },
+  { date: '06-16', title: 'National Fudge Day', category: 'Food & Beverage', tags: 'food,dessert,chocolate,sweet,candy,snack' },
+  { date: '06-17', title: 'National Eat Your Vegetables Day', category: 'Food & Beverage', tags: 'food,healthy,nutrition,vegetables,diet,organic' },
+  { date: '06-18', title: 'National Splurge Day', category: 'Special Interest', tags: 'luxury,shopping,lifestyle,spa,wine,indulge' },
+  { date: '06-19', title: 'Juneteenth', category: 'Federal', tags: 'history,freedom,community,culture,celebration' },
+  { date: '06-21', title: 'First Day of Summer', category: 'Seasonal', tags: 'summer,outdoor,nature,travel,adventure,sun,beach,motorcycle' },
+  { date: '06-21', title: 'National Selfie Day', category: 'Special Interest', tags: 'social media,photo,content,marketing,fun,branding' },
+  { date: '06-23', title: 'National Pink Day', category: 'Special Interest', tags: 'color,fun,social media,fashion,beauty,spa' },
+  { date: '06-24', title: 'National Praline Day', category: 'Food & Beverage', tags: 'food,candy,sweet,dessert,snack' },
+  { date: '06-27', title: 'National Sun Glasses Day', category: 'Special Interest', tags: 'fashion,style,summer,outdoor,lifestyle,grooming' },
+  { date: '06-28', title: 'National Logistics Day', category: 'Business', tags: 'business,logistics,supply chain,operations' },
+  { date: '06-29', title: 'National Camera Day', category: 'Arts & Entertainment', tags: 'photography,art,content,social media,creative,gallery' },
+  { date: '06-30', title: 'National Social Media Day', category: 'Technology', tags: 'social media,marketing,digital,content,branding,internet' },
+
+  // ── JULY ──
+  { date: '07-01', title: 'National Gingersnap Day', category: 'Food & Beverage', tags: 'food,baking,cookie,snack,sweet' },
+  { date: '07-02', title: 'World UFO Day', category: 'Special Interest', tags: 'fun,mystery,space,social media,creative' },
+  { date: '07-04', title: 'Independence Day', category: 'Federal', tags: 'patriotism,BBQ,food,beer,wine,celebration,fireworks,outdoor,community' },
+  { date: '07-06', title: 'National Fried Chicken Day', category: 'Food & Beverage', tags: 'food,chicken,recipe,comfort food,restaurant' },
+  { date: '07-07', title: 'World Chocolate Day', category: 'Food & Beverage', tags: 'food,chocolate,dessert,sweet,snack,gift' },
+  { date: '07-09', title: 'National Sugar Cookie Day', category: 'Food & Beverage', tags: 'food,baking,dessert,sweet,cookie' },
+  { date: '07-10', title: 'National Kitten Day', category: 'Animals', tags: 'cats,animals,pets,cute,fun' },
+  { date: '07-11', title: 'National Mojito Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,spirits,bar,summer' },
+  { date: '07-12', title: 'National Pecan Pie Day', category: 'Food & Beverage', tags: 'food,dessert,baking,pie,sweet' },
+  { date: '07-14', title: 'National Tape Measure Day', category: 'Special Interest', tags: 'construction,building,tools,DIY,measuring' },
+  { date: '07-15', title: 'National Give Something Away Day', category: 'Cause', tags: 'charity,community,giving,kindness,real estate' },
+  { date: '07-16', title: 'World Snake Day', category: 'Animals', tags: 'animals,wildlife,reptile,nature,conservation' },
+  { date: '07-17', title: 'National Tattoo Day', category: 'Arts & Entertainment', tags: 'tattoo,art,style,body art,barber,grooming' },
+  { date: '07-18', title: 'National Sour Candy Day', category: 'Food & Beverage', tags: 'food,candy,sweet,sour,snack' },
+  { date: '07-19', title: 'National Daiquiri Day', category: 'Food & Beverage', tags: 'cocktail,drink,alcohol,spirits,summer,bar' },
+  { date: '07-20', title: 'National Moon Day', category: 'Special Interest', tags: 'space,science,nature,adventure,inspiration' },
+  { date: '07-21', title: 'National Junk Food Day', category: 'Food & Beverage', tags: 'food,snack,fun,indulge,junk food' },
+  { date: '07-22', title: 'National Mango Day', category: 'Food & Beverage', tags: 'food,fruit,healthy,tropical,snack,nutrition' },
+  { date: '07-24', title: 'International Self-Care Day', category: 'Health', tags: 'self-care,wellness,spa,mental health,beauty,relaxation' },
+  { date: '07-25', title: 'National Wine and Cheese Day', category: 'Food & Beverage', tags: 'wine,cheese,winery,drink,alcohol,pairing,tasting,vineyard' },
+  { date: '07-27', title: 'National Scotch Day', category: 'Food & Beverage', tags: 'whiskey,spirits,alcohol,drink,barber,gentleman' },
+  { date: '07-28', title: 'National Milk Chocolate Day', category: 'Food & Beverage', tags: 'food,chocolate,dessert,sweet,snack' },
+  { date: '07-30', title: 'International Day of Friendship', category: 'Relationships', tags: 'friendship,community,social,love,connection' },
+  { date: '07-31', title: 'National Mutt Day', category: 'Animals', tags: 'dogs,pets,rescue,adoption,animals' },
+
+  // ── AUGUST ──
+  { date: '08-01', title: 'National Girlfriend Day', category: 'Relationships', tags: 'friendship,women,love,spa,beauty,celebration' },
+  { date: '08-02', title: 'National Ice Cream Sandwich Day', category: 'Food & Beverage', tags: 'food,ice cream,summer,sweet,dessert,snack' },
+  { date: '08-03', title: 'National Watermelon Day', category: 'Food & Beverage', tags: 'food,fruit,summer,healthy,snack,fresh' },
+  { date: '08-04', title: 'National Chocolate Chip Cookie Day', category: 'Food & Beverage', tags: 'food,baking,cookie,dessert,sweet,snack' },
+  { date: '08-05', title: 'National Oyster Day', category: 'Food & Beverage', tags: 'food,seafood,restaurant,wine,luxury,gourmet' },
+  { date: '08-08', title: 'International Cat Day', category: 'Animals', tags: 'cats,animals,pets,cute,wildlife' },
+  { date: '08-09', title: 'National Book Lovers Day', category: 'Arts & Entertainment', tags: 'books,reading,art,education,knowledge,gallery,culture' },
+  { date: '08-10', title: 'National Lazy Day', category: 'Fun', tags: 'rest,wellness,self-care,relaxation,spa,fun' },
+  { date: '08-12', title: 'World Elephant Day', category: 'Animals', tags: 'wildlife,conservation,animals,nature,birds,elephants' },
+  { date: '08-13', title: 'National Prosecco Day', category: 'Food & Beverage', tags: 'wine,sparkling,winery,drink,alcohol,tasting,celebration' },
+  { date: '08-16', title: 'National Rum Day', category: 'Food & Beverage', tags: 'cocktail,rum,drink,alcohol,spirits,bar,beverage' },
+  { date: '08-17', title: 'National Black Cat Appreciation Day', category: 'Animals', tags: 'cats,animals,pets,wildlife,cute' },
+  { date: '08-18', title: 'National Fajita Day', category: 'Food & Beverage', tags: 'food,Mexican,recipe,cooking,healthy,protein' },
+  { date: '08-19', title: 'World Photography Day', category: 'Arts & Entertainment', tags: 'photography,art,gallery,creative,content,social media,marketing' },
+  { date: '08-21', title: 'National Senior Citizens Day', category: 'Relationships', tags: 'community,appreciation,family,history' },
+  { date: '08-22', title: 'National Bring Your Cat to the Vet Day', category: 'Animals', tags: 'pets,cats,health,animals' },
+  { date: '08-23', title: 'National Sponge Cake Day', category: 'Food & Beverage', tags: 'food,baking,cake,dessert,sweet' },
+  { date: '08-24', title: 'National Waffle Day', category: 'Food & Beverage', tags: 'food,breakfast,baking,sweet,recipe' },
+  { date: '08-26', title: "Women's Equality Day", category: 'Cause', tags: 'women,equality,empowerment,community,spa,beauty' },
+  { date: '08-27', title: 'National Just Because Day', category: 'Fun', tags: 'fun,random,social media,content,creative,marketing' },
+  { date: '08-28', title: 'National Cherry Turnovers Day', category: 'Food & Beverage', tags: 'food,baking,dessert,sweet,pastry' },
+  { date: '08-30', title: 'National Beach Day', category: 'Special Interest', tags: 'beach,summer,outdoor,nature,travel,lifestyle' },
+  { date: '08-31', title: 'National Eat Outside Day', category: 'Food & Beverage', tags: 'food,outdoor,picnic,dining,social,wine' },
+
+  // ── SEPTEMBER ──
+  { date: '09-01', title: 'Labor Day', category: 'Federal', tags: 'labor,workers,community,BBQ,outdoor,construction,real estate' },
+  { date: '09-05', title: 'National Cheese Pizza Day', category: 'Food & Beverage', tags: 'food,pizza,cheese,recipe,restaurant' },
+  { date: '09-06', title: 'National Read a Book Day', category: 'Arts & Entertainment', tags: 'books,reading,education,art,gallery,culture' },
+  { date: '09-07', title: 'National Beer Lover\'s Day', category: 'Food & Beverage', tags: 'beer,craft beer,drink,alcohol,bar,brewing' },
+  { date: '09-08', title: 'International Literacy Day', category: 'Cause', tags: 'education,reading,books,knowledge,art,gallery' },
+  { date: '09-09', title: 'National Teddy Bear Day', category: 'Special Interest', tags: 'fun,nostalgia,cute,children,gift' },
+  { date: '09-11', title: 'National Day of Service and Remembrance', category: 'Federal', tags: 'community,service,history,honor,construction,first responders' },
+  { date: '09-13', title: 'National Peanut Day', category: 'Food & Beverage', tags: 'food,snack,healthy,nuts,peanut butter,protein' },
+  { date: '09-15', title: 'National Hispanic Heritage Month Begins', category: 'Cultural', tags: 'culture,diversity,community,heritage,food' },
+  { date: '09-16', title: 'National Guacamole Day', category: 'Food & Beverage', tags: 'food,avocado,healthy,snack,recipe,Mexican' },
+  { date: '09-17', title: 'National Furniture Day', category: 'Special Interest', tags: 'home,interior design,furniture,real estate,decor,construction' },
+  { date: '09-18', title: 'National Cheeseburger Day', category: 'Food & Beverage', tags: 'food,burger,BBQ,restaurant,meat,recipe' },
+  { date: '09-19', title: 'National Butterscotch Pudding Day', category: 'Food & Beverage', tags: 'food,dessert,pudding,sweet,snack' },
+  { date: '09-20', title: 'National Pepperoni Pizza Day', category: 'Food & Beverage', tags: 'food,pizza,meat,recipe,restaurant,cheese' },
+  { date: '09-21', title: 'National Chai Tea Day', category: 'Food & Beverage', tags: 'food,tea,drink,spice,beverage,warm' },
+  { date: '09-22', title: 'First Day of Fall', category: 'Seasonal', tags: 'fall,autumn,nature,seasonal,harvest,wine,beer,food' },
+  { date: '09-22', title: 'National Business Women\'s Day', category: 'Business', tags: 'women,business,marketing,branding,entrepreneur,real estate' },
+  { date: '09-23', title: 'National Great American Pot Pie Day', category: 'Food & Beverage', tags: 'food,comfort food,baking,recipe,cooking' },
+  { date: '09-25', title: 'National Comic Book Day', category: 'Arts & Entertainment', tags: 'art,comics,gallery,creative,pop culture,illustration' },
+  { date: '09-27', title: 'World Tourism Day', category: 'Special Interest', tags: 'travel,tourism,adventure,outdoor,motorcycle,real estate' },
+  { date: '09-28', title: 'National Drink Beer Day', category: 'Food & Beverage', tags: 'beer,craft beer,drink,alcohol,brewing,bar' },
+  { date: '09-29', title: 'National Coffee Day', category: 'Food & Beverage', tags: 'coffee,drink,morning,beverage,caffeine,food' },
+  { date: '09-30', title: 'National Extra Virgin Olive Oil Day', category: 'Food & Beverage', tags: 'food,healthy,cooking,olive oil,recipe,nutrition' },
+
+  // ── OCTOBER ──
+  { date: '10-01', title: 'World Vegetarian Day', category: 'Food & Beverage', tags: 'food,healthy,vegetarian,nutrition,plant-based,vegan,diet' },
+  { date: '10-01', title: 'National Hair Day', category: 'Special Interest', tags: 'hair,barber,grooming,beauty,style,haircut,fashion' },
+  { date: '10-02', title: 'World Farm Animals Day', category: 'Animals', tags: 'animals,wildlife,farming,nature,conservation' },
+  { date: '10-04', title: 'World Animal Day', category: 'Animals', tags: 'animals,wildlife,pets,nature,conservation,birds,falconry' },
+  { date: '10-05', title: 'World Teachers Day', category: 'Cause', tags: 'education,community,appreciation,teachers' },
+  { date: '10-07', title: 'National Frappe Day', category: 'Food & Beverage', tags: 'food,coffee,drink,beverage,sweet,snack' },
+  { date: '10-09', title: 'National Kick Butt Day', category: 'Fun', tags: 'motivation,social media,content,fun,marketing' },
+  { date: '10-10', title: 'World Mental Health Day', category: 'Health', tags: 'mental health,wellness,self-care,spa,therapy,awareness' },
+  { date: '10-13', title: 'National No Bra Day', category: 'Cause', tags: 'health,awareness,women,empowerment,cause' },
+  { date: '10-14', title: 'National Dessert Day', category: 'Food & Beverage', tags: 'food,dessert,sweet,snack,baking,chocolate' },
+  { date: '10-15', title: 'National Grouch Day', category: 'Fun', tags: 'fun,humor,social media,content,creative' },
+  { date: '10-16', title: 'World Food Day', category: 'Cause', tags: 'food,nutrition,healthy,hunger,cooking,global,snack' },
+  { date: '10-17', title: 'National Pasta Day', category: 'Food & Beverage', tags: 'food,pasta,Italian,recipe,cooking,dinner' },
+  { date: '10-18', title: 'National Chocolate Cupcake Day', category: 'Food & Beverage', tags: 'food,dessert,baking,chocolate,sweet,snack' },
+  { date: '10-20', title: 'National Brandied Fruit Day', category: 'Food & Beverage', tags: 'wine,fruit,brandy,drink,alcohol,spirits,vineyard' },
+  { date: '10-21', title: 'International Day of the Nacho', category: 'Food & Beverage', tags: 'food,snack,cheese,Mexican,fun,party' },
+  { date: '10-22', title: 'National Nut Day', category: 'Food & Beverage', tags: 'food,snack,healthy,protein,nuts,diet,nutrition' },
+  { date: '10-25', title: 'National Greasy Foods Day', category: 'Food & Beverage', tags: 'food,fun,indulge,comfort food,snack' },
+  { date: '10-28', title: 'National First Responders Day', category: 'Cause', tags: 'community,first responders,appreciation,honor' },
+  { date: '10-30', title: 'National Candy Corn Day', category: 'Food & Beverage', tags: 'food,candy,halloween,sweet,seasonal' },
+  { date: '10-31', title: 'Halloween', category: 'Cultural', tags: 'halloween,costume,fun,candy,spooky,seasonal,social media,marketing,food' },
+
+  // ── NOVEMBER ──
+  { date: '11-01', title: 'National Author\'s Day', category: 'Arts & Entertainment', tags: 'books,writing,art,culture,gallery,creative,author' },
+  { date: '11-01', title: 'World Vegan Day', category: 'Food & Beverage', tags: 'food,vegan,healthy,nutrition,plant-based,diet,snack' },
+  { date: '11-03', title: 'National Sandwich Day', category: 'Food & Beverage', tags: 'food,sandwich,recipe,lunch,snack,deli' },
+  { date: '11-06', title: 'National Nachos Day', category: 'Food & Beverage', tags: 'food,snack,cheese,nachos,party,fun' },
+  { date: '11-07', title: 'National Bittersweet Chocolate with Almonds Day', category: 'Food & Beverage', tags: 'food,chocolate,snack,sweet,nuts,dessert' },
+  { date: '11-08', title: 'National Cappuccino Day', category: 'Food & Beverage', tags: 'coffee,food,drink,beverage,morning,cafe' },
+  { date: '11-10', title: 'National Vanilla Cupcake Day', category: 'Food & Beverage', tags: 'food,baking,dessert,sweet,snack' },
+  { date: '11-11', title: 'Veterans Day', category: 'Federal', tags: 'veterans,history,honor,patriotism,community,military' },
+  { date: '11-13', title: 'World Kindness Day', category: 'Cause', tags: 'kindness,community,social media,wellness,positivity' },
+  { date: '11-14', title: 'National Pickle Day', category: 'Food & Beverage', tags: 'food,snack,pickle,fun,recipe' },
+  { date: '11-15', title: 'National Philanthropy Day', category: 'Cause', tags: 'charity,giving,community,generosity,business,real estate' },
+  { date: '11-17', title: 'National Baklava Day', category: 'Food & Beverage', tags: 'food,dessert,sweet,pastry,snack' },
+  { date: '11-18', title: 'National Apple Cider Day', category: 'Food & Beverage', tags: 'food,drink,beverage,fall,cider,apple,seasonal' },
+  { date: '11-19', title: "International Men's Day", category: 'Relationships', tags: 'men,grooming,barber,beard,health,community,wellness,barbershop' },
+  { date: '11-20', title: 'National Peanut Butter Fudge Day', category: 'Food & Beverage', tags: 'food,dessert,snack,sweet,peanut butter' },
+  { date: '11-21', title: 'World Television Day', category: 'Arts & Entertainment', tags: 'media,entertainment,content,social media,marketing,digital' },
+  { date: '11-24', title: 'Thanksgiving Day', category: 'Federal', tags: 'thanksgiving,food,family,gratitude,cooking,wine,feast,celebration' },
+  { date: '11-25', title: 'National Parfait Day', category: 'Food & Beverage', tags: 'food,dessert,healthy,snack,breakfast,fruit' },
+  { date: '11-27', title: 'National Bavarian Cream Pie Day', category: 'Food & Beverage', tags: 'food,dessert,pie,sweet,baking,cream' },
+  { date: '11-28', title: 'National French Toast Day', category: 'Food & Beverage', tags: 'food,breakfast,recipe,sweet,brunch,cooking' },
+  { date: '11-29', title: 'Small Business Saturday', category: 'Business', tags: 'small business,shopping,community,local,marketing,barber,spa,winery,real estate' },
+  { date: '11-30', title: 'National Stay Home Because You Are Well Day', category: 'Health', tags: 'wellness,self-care,home,rest,spa,relaxation' },
+
+  // ── DECEMBER ──
+  { date: '12-01', title: 'World AIDS Day', category: 'Cause', tags: 'health,awareness,community,wellness' },
+  { date: '12-04', title: 'National Cookie Day', category: 'Food & Beverage', tags: 'food,baking,cookie,dessert,sweet,snack,holiday' },
+  { date: '12-05', title: 'National Comfort Food Day', category: 'Food & Beverage', tags: 'food,comfort food,recipe,cooking,warm,seasonal' },
+  { date: '12-07', title: 'National Cotton Candy Day', category: 'Food & Beverage', tags: 'food,sweet,candy,fun,nostalgia' },
+  { date: '12-09', title: 'National Pastry Day', category: 'Food & Beverage', tags: 'food,baking,pastry,dessert,sweet,snack' },
+  { date: '12-10', title: 'Human Rights Day', category: 'Cause', tags: 'rights,community,equality,awareness,activism' },
+  { date: '12-12', title: 'National Ding-A-Ling Day', category: 'Fun', tags: 'fun,humor,social media,creative,content' },
+  { date: '12-14', title: 'National Energy Conservation Day', category: 'Cause', tags: 'energy,environment,sustainability,green,construction,building,home' },
+  { date: '12-16', title: 'National Chocolate-Covered Anything Day', category: 'Food & Beverage', tags: 'food,chocolate,dessert,sweet,fun,snack' },
+  { date: '12-18', title: 'National Roast Suckling Pig Day', category: 'Food & Beverage', tags: 'food,meat,recipe,cooking,holiday,feast' },
+  { date: '12-20', title: 'National Sangria Day', category: 'Food & Beverage', tags: 'wine,sangria,drink,alcohol,vineyard,cocktail,winery,tasting' },
+  { date: '12-21', title: 'First Day of Winter', category: 'Seasonal', tags: 'winter,nature,seasonal,cozy,holiday,indoor,home' },
+  { date: '12-21', title: 'National Short Story Day', category: 'Arts & Entertainment', tags: 'writing,stories,art,gallery,creative,books' },
+  { date: '12-24', title: 'Christmas Eve', category: 'Religious', tags: 'christmas,holiday,family,gifts,food,wine,celebration,festive' },
+  { date: '12-25', title: 'Christmas Day', category: 'Federal', tags: 'christmas,holiday,family,gifts,food,wine,celebration,festive,community' },
+  { date: '12-26', title: 'National Candy Cane Day', category: 'Food & Beverage', tags: 'food,candy,christmas,sweet,seasonal,holiday' },
+  { date: '12-27', title: 'National Fruitcake Day', category: 'Food & Beverage', tags: 'food,baking,holiday,dessert,seasonal' },
+  { date: '12-28', title: 'National Card Playing Day', category: 'Fun', tags: 'games,fun,family,social,entertainment' },
+  { date: '12-31', title: "New Year's Eve", category: 'Federal', tags: 'celebration,champagne,wine,cocktail,party,food,fun,fireworks,new year' },
 ]
 
 export default async (req, context) => {
@@ -24,197 +307,29 @@ export default async (req, context) => {
     })
   }
 
-  const monthName = MONTH_NAMES[month]
-  const pageUrl = `https://nationaltoday.com/${monthName}-holidays/`
+  const monthPad = String(month).padStart(2, '0')
 
-  try {
-    const res = await fetch(pageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
-    })
+  const holidays = ALL_HOLIDAYS
+    .filter(h => h.date.startsWith(monthPad))
+    .map(h => ({
+      ...h,
+      date: `${year}-${h.date}`,
+      url: `https://nationaltoday.com/${h.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}/`,
+      description: `${h.title} — ${h.category}. Related: ${h.tags.split(',').slice(0,4).join(', ')}.`,
+    }))
 
-    if (!res.ok) {
-      return new Response(JSON.stringify({ error: `Failed to fetch ${pageUrl}: ${res.status}`, holidays: [] }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      })
+  return new Response(JSON.stringify({
+    holidays,
+    month,
+    year,
+    count: holidays.length,
+    source: 'Built-in database',
+  }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, s-maxage=86400',
     }
-
-    const html = await res.text()
-    const holidays = parseHolidays(html, month, year)
-
-    return new Response(JSON.stringify({
-      holidays,
-      month,
-      year,
-      count: holidays.length,
-      source: pageUrl,
-    }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, s-maxage=3600',
-      }
-    })
-
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message, holidays: [] }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    })
-  }
+  })
 }
-
-function stripTags(html) {
-  return html
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&#039;/g, "'")
-    .replace(/&rsquo;/g, "'")
-    .replace(/&ndash;/g, '-')
-    .replace(/&lsquo;/g, "'")
-    .replace(/&rdquo;/g, '"')
-    .replace(/&ldquo;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function parseHolidays(html, month, year) {
-  const holidays = []
-  const monthShort = MONTH_SHORT[month]
-
-  // ── Strategy 1: Parse the HTML table ─────────────────────────────────────
-  // The nationaltoday.com holiday page renders a table like:
-  //   Date row:    <td>Apr 1 Wednesday</td><td></td><td></td><td></td>
-  //   Holiday row: <td></td><td><a href="/april-fools-day/">April Fools' Day</a></td><td>Special Interest</td><td>Activities, Fun</td>
-
-  let currentDay = null
-  const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
-  let trMatch
-
-  while ((trMatch = trRe.exec(html)) !== null) {
-    const rowHtml = trMatch[1]
-    const cells = []
-    const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi
-    let tdMatch
-    while ((tdMatch = tdRe.exec(rowHtml)) !== null) {
-      cells.push(tdMatch[1])
-    }
-    if (cells.length < 2) continue
-
-    const cell0text = stripTags(cells[0])
-    const cell1 = cells[1] || ''
-    const cell2 = cells[2] || ''
-    const cell3 = cells[3] || ''
-
-    // Date row: first cell starts with short month name like "Apr 1" or "Apr 1 Wednesday"
-    if (cell0text && cell0text.startsWith(monthShort)) {
-      const dayMatch = cell0text.match(/\d+/)
-      if (dayMatch) currentDay = parseInt(dayMatch[0])
-      continue
-    }
-
-    // Holiday row: first cell empty, second cell has the holiday link
-    if (!cell0text.trim() && cell1.includes('<a') && currentDay) {
-      const linkMatch = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i.exec(cell1)
-      if (!linkMatch) continue
-
-      const href = linkMatch[1]
-      const title = stripTags(linkMatch[2])
-      if (!title || title.length < 2 || title.toLowerCase() === 'holiday') continue
-
-      const category = stripTags(cell2)
-      const tags = stripTags(cell3)
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
-      const fullUrl = href.startsWith('http') ? href : `https://nationaltoday.com${href}`
-
-      holidays.push({
-        title,
-        date: dateStr,
-        category: category || '',
-        tags: tags || '',
-        url: fullUrl,
-        description: [title, category, tags].filter(Boolean).join(' · '),
-      })
-    }
-  }
-
-  // ── Strategy 2: Fallback via day-by-day date anchor tracking ─────────────
-  // If table parsing found nothing (e.g. HTML structure changed), scan for
-  // holiday links anchored near date markers like /april-13/
-  if (holidays.length === 0) {
-    const SKIP_SLUGS = new Set([
-      'today','reminders','login-page','sign-up','national-day-topics',
-      'animal-holidays','arts-entertainment-holidays','cause-holidays',
-      'cultural-holidays','federal-holidays','food-beverage-holidays',
-      'health-holidays','relationship-holidays','religious-holidays',
-      'special-interest-holidays','fun-holidays',
-    ])
-
-    // Collect date anchor positions: href="/april-13/" → day 13
-    const dateAnchorRe = /href="https?:\/\/nationaltoday\.com\/[a-z]+-(\d{1,2})(?:-holidays)?\/"[^>]*>/gi
-    let da
-    const datePositions = []
-    while ((da = dateAnchorRe.exec(html)) !== null) {
-      const d = parseInt(da[1])
-      if (d >= 1 && d <= 31) datePositions.push({ pos: da.index, day: d })
-    }
-
-    const linkRe = /href="https?:\/\/nationaltoday\.com\/([^"\/]+)\/"[^>]*>([^<]{3,80})<\/a>/gi
-    const seen = new Set()
-    let m
-
-    while ((m = linkRe.exec(html)) !== null) {
-      const slug = m[1]
-      const title = m[2].trim()
-
-      if (seen.has(slug)) continue
-      if (SKIP_SLUGS.has(slug)) continue
-      // Skip month pages, birthday pages, city pages, category pages
-      if (/-(holidays|birthdays)$/.test(slug)) continue
-      if (/^(january|february|march|april|may|june|july|august|september|october|november|december)-/.test(slug)) continue
-      if (!title || title.length < 3) continue
-
-      seen.add(slug)
-
-      // Find nearest preceding date anchor
-      let day = null
-      for (let i = datePositions.length - 1; i >= 0; i--) {
-        if (datePositions[i].pos < m.index) {
-          day = datePositions[i].day
-          break
-        }
-      }
-      if (!day) continue
-
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      holidays.push({
-        title,
-        date: dateStr,
-        category: '',
-        tags: '',
-        url: `https://nationaltoday.com/${slug}/`,
-        description: title,
-      })
-    }
-  }
-
-  // Deduplicate by date + title
-  const seen = new Set()
-  const deduped = []
-  for (const h of holidays) {
-    const key = h.date + '|' + h.title.toLowerCase()
-    if (!seen.has(key)) {
-      seen.add(key)
-      deduped.push(h)
-    }
-  }
-
-  return deduped.sort((a, b) => a.date.localeCompare(b.date))
-}
-
-// Available at: /.netlify/functions/fetch-holidays (redirected from /api/fetch-holidays)

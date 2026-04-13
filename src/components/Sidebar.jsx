@@ -1,12 +1,12 @@
-import { LayoutDashboard, Tag, Calendar, List, Settings, Plus, ClipboardCheck } from 'lucide-react'
+import { LayoutDashboard, Tag, Calendar, List, Settings, Plus, LayoutGrid, TableProperties } from 'lucide-react'
 
-export default function Sidebar({ view, setView, onAddEvent, pendingCount }) {
+export default function Sidebar({ view, setView, onAddEvent }) {
   const NAV = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'brands',    label: 'Brands',    icon: Tag },
-    { id: 'review',    label: 'Review',    icon: ClipboardCheck, badge: pendingCount },
-    { id: 'calendar',  label: 'Calendar',  icon: Calendar },
-    { id: 'events',    label: 'All Events', icon: List },
+    { id: 'dashboard', label: 'Dashboard',      icon: LayoutDashboard },
+    { id: 'schedule',  label: 'Brand Schedule', icon: TableProperties },
+    { id: 'brands',    label: 'Brands',         icon: Tag },
+    { id: 'calendar',  label: 'Calendar',       icon: Calendar },
+    { id: 'events',    label: 'All Events',     icon: List },
   ]
 
   return (
@@ -21,17 +21,10 @@ export default function Sidebar({ view, setView, onAddEvent, pendingCount }) {
 
       <nav className="nav-section">
         <div className="nav-label">Main</div>
-        {NAV.map(({ id, label, icon: Icon, badge }) => (
+        {NAV.map(({ id, label, icon: Icon }) => (
           <div key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}>
             <Icon size={16} />
-            <span style={{ flex: 1 }}>{label}</span>
-            {badge > 0 && (
-              <span style={{
-                background: 'var(--gold)', color: '#07070F',
-                borderRadius: 20, fontSize: 10, fontWeight: 800,
-                padding: '1px 7px', minWidth: 20, textAlign: 'center'
-              }}>{badge}</span>
-            )}
+            <span>{label}</span>
           </div>
         ))}
 
