@@ -55,7 +55,7 @@ const BRAND_DESCRIPTIONS = {
   'Tailored Bites':             'Healthy food snacks brand: nutritious clean-label snacks, health, nutrition, whole ingredients, mindful eating.',
 }
 
-export async function matchHolidaysWithAI(holidays, brands, apiKey, onProgress) {
+export async function matchHolidaysWithAI(holidays, brands, apiKey, onProgress, learningContext = '') {
   if (!apiKey) throw new Error('Gemini API key required')
 
   // Step 1: detect best available model
@@ -84,7 +84,7 @@ export async function matchHolidaysWithAI(holidays, brands, apiKey, onProgress) 
       `${idx + 1}. ${h.title}${h.category ? ` (${h.category})` : ''}`
     ).join('\n')
 
-    const prompt = `You are a social media content planner. Match these holidays to brands that could create a relevant social media post for it.
+    const prompt = `You are a social media content planner. Match these holidays to brands that could create a relevant social media post for it.${learningContext}
 
 BRANDS:
 ${brandList}
@@ -197,4 +197,34 @@ export async function testGeminiKey(apiKey) {
   const data = await res.json()
   const detectedModel = model
   return { ok: true, model: detectedModel }
+}
+
+// Build learning context from past relevance decisions
+// Returns a string summarising what each brand has approved/rejected
+export function buildLearningContext(events, relevanceOverrides, brands) {
+  if (!relevanceOverrides || Object.keys(relevanceOverrides).length === 0) return ''
+
+  const lines = []
+
+  for (const brand of brands) {
+    const approved = []
+    const rejected = []
+
+    for (const [eventId, brandMap] of Object.entries(relevanceOverrides)) {
+      const decision = brandMap[brand.id]
+      if (!decision) continue
+      const event = events.find(e => e.id === eventId)
+      if (!event) continue
+      if (decision === 'relevant') approved.push(`"${event.title}"${event.category ? ` (${event.category})` : ''}`)
+      else rejected.push(`"${event.title}"${event.category ? ` (${event.category})` : ''}`)
+    }
+
+    if (approved.length > 0 || rejected.length > 0) {
+      lines.push(`${brand.name}:`)
+      if (approved.length > 0) lines.push(`  Previously approved: ${approved.slice(0, 8).join(', ')}`)
+      if (rejected.length > 0) lines.push(`  Previously rejected: ${rejected.slice(0, 8).join(', ')}`)
+    }
+  }
+
+  return lines.length > 0 ? '\nLEARNING FROM PAST DECISIONS:\n' + lines.join('\n') : ''
 }

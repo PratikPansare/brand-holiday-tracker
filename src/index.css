@@ -1067,3 +1067,105 @@ textarea { resize: vertical; min-height: 90px; }
   .page-title { font-size: 20px; }
   .main-content { padding: 68px 12px 20px; }
 }
+
+/* ===== MOBILE IMPROVEMENTS ===== */
+@media (max-width: 768px) {
+  /* Schedule table — allow horizontal scroll with touch */
+  .schedule-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius);
+  }
+
+  /* Events list on mobile */
+  .event-row { padding: 10px 12px; gap: 8px; }
+  .event-date-day { font-size: 18px; }
+  .event-date-badge { min-width: 34px; }
+  .event-title { font-size: 13px; }
+
+  /* Brand cards — full width */
+  .brand-grid { grid-template-columns: 1fr !important; }
+
+  /* Stat grid — always 2 cols on mobile */
+  .stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  .stat-value { font-size: 26px !important; }
+
+  /* Page headers — stack on mobile */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+  .page-header > div:last-child {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .page-header .btn { flex: 1; justify-content: center; min-width: 100px; }
+
+  /* Schedule view */
+  .main-content table td, .main-content table th { font-size: 10px !important; }
+  .main-content table th[style*="minWidth: 210"],
+  .main-content table th[style*="minWidth:210"] { min-width: 130px !important; }
+  .main-content table td[style*="minWidth: 110"],
+  .main-content table td[style*="minWidth:110"] { min-width: 80px !important; }
+
+  /* Calendar — smaller day cells */
+  .cal-day { min-height: 50px !important; padding: 4px !important; }
+  .cal-event { font-size: 8px !important; padding: 1px 3px !important; }
+  .cal-day-num { font-size: 10px !important; }
+  .cal-day-header { font-size: 8px !important; padding: 5px 2px !important; }
+
+  /* Settings — full-width rows */
+  .settings-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .settings-row .btn { align-self: flex-start; }
+  .settings-row .toggle { align-self: flex-start; }
+
+  /* Filter bar wrapping */
+  .filter-bar { gap: 8px; }
+  .filter-bar > * { flex: 1; min-width: 0; }
+
+  /* Table on mobile — horizontal scroll */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { font-size: 12px; min-width: 600px; }
+  thead th { font-size: 10px; padding: 8px 8px; }
+  tbody td { padding: 10px 8px; }
+
+  /* Modal — slide up from bottom */
+  .modal-overlay { padding: 0 !important; align-items: flex-end !important; }
+  .modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 92vh;
+    animation: slideUpModal 0.22s ease !important;
+  }
+  .form-row { grid-template-columns: 1fr !important; }
+
+  /* Toast — full width on mobile */
+  .toast-container { bottom: 12px; right: 8px; left: 8px; }
+  .toast { min-width: unset !important; max-width: 100%; }
+
+  /* Nav items in sidebar — bigger touch targets */
+  .nav-item { padding: 12px 14px; }
+  .sidebar-bottom { padding: 12px; }
+  .add-btn { padding: 12px; font-size: 14px; }
+}
+
+@media (max-width: 480px) {
+  .main-content { padding: 64px 10px 20px !important; }
+  .page-title { font-size: 18px !important; }
+  .section-title { font-size: 14px !important; }
+  .stat-value { font-size: 22px !important; }
+  .stat-label { font-size: 10px !important; }
+
+  /* Event actions — icon only on very small screens */
+  .event-actions .btn span { display: none; }
+  .event-actions .btn { padding: 5px 8px; }
+
+  /* Brand pill — smaller */
+  .brand-pill { font-size: 10px; padding: 1px 6px; }
+  .brand-dot { width: 6px; height: 6px; }
+}

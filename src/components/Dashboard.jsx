@@ -3,10 +3,22 @@ import { Plus, Calendar, CalendarCheck, TableProperties, ClipboardPaste } from '
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport, syncStatus }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport, syncStatus, relevanceOverrides }) {
   const today = new Date()
+  // Only show events that are relevant for at least one of their brands
+  const isEventRelevant = (event) => {
+    if (!event.brandIds?.length) return false
+    return event.brandIds.some(brandId => {
+      const override = relevanceOverrides?.[event.id]?.[brandId]
+      if (override) return override === 'relevant'
+      // Default: events with brandIds are relevant unless explicitly dismissed
+      return true
+    })
+  }
+
   const upcoming = events
     .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })
+    .filter(isEventRelevant)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(0, 12)
 

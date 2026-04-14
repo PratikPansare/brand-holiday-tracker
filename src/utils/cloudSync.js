@@ -1,41 +1,31 @@
-// Cloud sync via Netlify Blobs — syncs brands + events across all devices
+// Cloud sync via Netlify Blobs — syncs brands, events, and relevance overrides
 // Falls back to localStorage if server unreachable
-
-const SYNC_DEBOUNCE_MS = 2000 // wait 2s after last change before syncing
 
 let syncTimer = null
 
 export async function loadFromCloud() {
   try {
-    const [brandsRes, eventsRes] = await Promise.all([
-      fetch('/api/load-data?key=brands'),
-      fetch('/api/load-data?key=events'),
+    const [b, e, r] = await Promise.all([
+      fetch('/api/load-data?key=brands').then(r => r.json()),
+      fetch('/api/load-data?key=events').then(r => r.json()),
+      fetch('/api/load-data?key=relevance').then(r => r.json()),
     ])
-    const brandsJson = await brandsRes.json()
-    const eventsJson = await eventsRes.json()
-
     return {
-      brands: brandsJson.data || null,
-      events: eventsJson.data || null,
+      brands: b.data || null,
+      events: e.data || null,
+      relevanceOverrides: r.data || null,
     }
   } catch {
-    return { brands: null, events: null }
+    return { brands: null, events: null, relevanceOverrides: null }
   }
 }
 
-export async function saveToCloud(brands, events) {
+async function saveToCloud(brands, events, relevanceOverrides) {
   try {
     await Promise.all([
-      fetch('/api/save-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'brands', data: brands }),
-      }),
-      fetch('/api/save-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'events', data: events }),
-      }),
+      fetch('/api/save-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key:'brands', data: brands }) }),
+      fetch('/api/save-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key:'events', data: events }) }),
+      fetch('/api/save-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key:'relevance', data: relevanceOverrides }) }),
     ])
     return true
   } catch {
@@ -43,11 +33,10 @@ export async function saveToCloud(brands, events) {
   }
 }
 
-// Debounced save — won't spam the API on rapid changes
-export function scheduleSave(brands, events, onSaved) {
+export function scheduleSave(brands, events, relevanceOverrides, onSaved) {
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(async () => {
-    const ok = await saveToCloud(brands, events)
+    const ok = await saveToCloud(brands, events, relevanceOverrides)
     onSaved?.(ok)
-  }, SYNC_DEBOUNCE_MS)
+  }, 1500) // 1.5s debounce — fast enough for relevance toggles
 }

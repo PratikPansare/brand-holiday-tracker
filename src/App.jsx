@@ -15,7 +15,7 @@ import { checkNotifications, scheduleNotification, showToast } from './utils/not
 import { getStoredToken } from './utils/googleCalendar'
 import { matchAllHolidaysToAllBrands, classifyHolidays } from './utils/matching'
 import { getHolidaysForMonths } from './utils/holidayDatabase'
-import { matchHolidaysWithAI } from './utils/aiMatching'
+import { matchHolidaysWithAI, buildLearningContext } from './utils/aiMatching'
 import { loadFromCloud, scheduleSave } from './utils/cloudSync'
 
 const SAMPLE_BRANDS = [
@@ -61,9 +61,10 @@ export default function App() {
     }
     // Load cloud data on startup — merges with local data
     setSyncStatus('syncing')
-    loadFromCloud().then(({ brands: cloudBrands, events: cloudEvents }) => {
+    loadFromCloud().then(({ brands: cloudBrands, events: cloudEvents, relevanceOverrides: cloudOverrides }) => {
       if (cloudBrands && cloudBrands.length > 0) setBrands(cloudBrands)
       if (cloudEvents && cloudEvents.length > 0) setEvents(cloudEvents)
+      if (cloudOverrides && Object.keys(cloudOverrides).length > 0) setRelevanceOverrides(cloudOverrides)
       setSyncStatus('synced')
     }).catch(() => setSyncStatus('error'))
   }, [])
@@ -72,8 +73,8 @@ export default function App() {
   useEffect(() => {
     if (brands.length === 0 && events.length === 0) return
     setSyncStatus('syncing')
-    scheduleSave(brands, events, (ok) => setSyncStatus(ok ? 'synced' : 'error'))
-  }, [brands, events])
+    scheduleSave(brands, events, relevanceOverrides, (ok) => setSyncStatus(ok ? 'synced' : 'error'))
+  }, [brands, events, relevanceOverrides])
 
   const fetchHolidays = async () => {
     if (fetching) return
@@ -216,7 +217,8 @@ export default function App() {
       if (unmatched.length > 0 && settings.geminiApiKey) {
         try {
           setFetchProgress(`AI matching ${unmatched.length} remaining holidays...`)
-          const aiMatches = await matchHolidaysWithAI(unmatched, brands, settings.geminiApiKey, setFetchProgress)
+          const learningCtx = buildLearningContext(events, relevanceOverrides, brands)
+          const aiMatches = await matchHolidaysWithAI(unmatched, brands, settings.geminiApiKey, setFetchProgress, learningCtx)
           aiEvents = unmatched
             .filter(h => (aiMatches[h.id] || []).length > 0)
             .map(h => ({ ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'ai' }))
@@ -257,7 +259,7 @@ export default function App() {
   }
 
   const views = {
-    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} syncStatus={syncStatus} />,
+    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} syncStatus={syncStatus} relevanceOverrides={relevanceOverrides} />,
     brands:    <BrandsView brands={brands} setBrands={setBrands} events={events} />,
     schedule:  <BrandScheduleView brands={brands} events={events} relevanceOverrides={relevanceOverrides} setRelevanceOverrides={setRelevanceOverrides} />,
     calendar:  <CalendarView brands={brands} events={events} />,
