@@ -8,6 +8,7 @@ import CalendarView from './components/CalendarView'
 import EventsView from './components/EventsView'
 import Settings from './components/Settings'
 import AddEventModal from './components/AddEventModal'
+import PasteImportModal from './components/PasteImportModal'
 import Toast from './components/Toast'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { checkNotifications, scheduleNotification, showToast } from './utils/notifications'
@@ -44,6 +45,7 @@ export default function App() {
     lastFetch: null,
   })
   const [showAddEvent, setShowAddEvent] = useState(false)
+  const [showPasteImport, setShowPasteImport] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [fetchProgress, setFetchProgress] = useState('')
 
@@ -161,6 +163,42 @@ export default function App() {
     }
   }
 
+  const handlePasteImport = async (rawHolidays) => {
+    if (rawHolidays.length === 0) return
+    setFetching(true)
+    setFetchProgress('Matching pasted holidays to brands with AI...')
+    try {
+      const { autoMatched, needsAI } = classifyHolidays(rawHolidays, brands)
+      let aiMatches = {}
+      if (needsAI.length > 0 && settings.geminiApiKey) {
+        try {
+          aiMatches = await matchHolidaysWithAI(needsAI, brands, settings.geminiApiKey, setFetchProgress)
+        } catch {
+          aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
+        }
+      } else {
+        aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
+      }
+      const newEvents = [
+        ...autoMatched.map(h => ({ ...h, isManual: false, pushed: false, notified: false, matchedBy: 'keyword' })),
+        ...needsAI.filter(h => (aiMatches[h.id]||[]).length > 0).map(h => ({
+          ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false,
+          matchedBy: settings.geminiApiKey ? 'ai' : 'keyword',
+        })),
+      ]
+      setEvents(prev => [...prev, ...newEvents])
+      const aiCount = newEvents.filter(e => e.matchedBy === 'ai').length
+      const kwCount = newEvents.filter(e => e.matchedBy === 'keyword').length
+      showToast(`${newEvents.length} holidays imported ✓`, `${kwCount} keyword + ${aiCount} AI matched`, 'success')
+      setView('schedule')
+    } catch (err) {
+      showToast('Import failed', err.message, 'error')
+    } finally {
+      setFetching(false)
+      setFetchProgress('')
+    }
+  }
+
   const handleAddEvent = (form) => {
     const event = { ...form, id: Date.now().toString(), isManual: true, pushed: false, notified: false }
     setEvents(prev => [...prev, event])
@@ -170,7 +208,7 @@ export default function App() {
   }
 
   const views = {
-    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} />,
+    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} />,
     brands:    <BrandsView brands={brands} setBrands={setBrands} events={events} />,
     schedule:  <BrandScheduleView brands={brands} events={events} />,
     calendar:  <CalendarView brands={brands} events={events} />,
@@ -195,6 +233,13 @@ export default function App() {
       <main className="main-content">{views[view]}</main>
 
       {showAddEvent && <AddEventModal brands={brands} onClose={() => setShowAddEvent(false)} onAdd={handleAddEvent} />}
+      {showPasteImport && (
+        <PasteImportModal
+          onClose={() => setShowPasteImport(false)}
+          onImport={handlePasteImport}
+          existingEventIds={new Set(events.map(e => e.id))}
+        />
+      )}
       <Toast />
     </div>
   )
