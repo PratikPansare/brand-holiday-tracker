@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Bell, Calendar, Trash2, Download, Sparkles, ExternalLink, Check } from 'lucide-react'
 import { connectGoogleCalendar, getStoredToken } from '../utils/googleCalendar'
+import { saveNow } from '../utils/cloudSync'
 import { requestNotificationPermission, showToast } from '../utils/notifications'
 import { testGeminiKey } from '../utils/aiMatching'
 
@@ -247,7 +248,14 @@ export default function Settings({ settings, setSettings, events, brands }) {
             <div className="settings-row-desc">Remove all events and re-fetch fresh</div>
           </div>
           <button className="btn btn-danger btn-sm" onClick={() => {
-            if (confirm('Clear all events?')) { localStorage.removeItem('events'); window.location.reload() }
+            if (confirm('Clear all events and start fresh?')) {
+              // Clear localStorage
+              localStorage.removeItem('events')
+              localStorage.removeItem('relevanceOverrides')
+              // Clear cloud too so it doesn't restore on reload
+              const currentBrands = JSON.parse(localStorage.getItem('brands') || '[]')
+              saveNow(currentBrands, [], {}).then(() => window.location.reload())
+            }
           }}>
             <Trash2 size={13} /> Clear
           </button>

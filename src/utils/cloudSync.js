@@ -1,6 +1,3 @@
-// Cloud sync via Netlify Blobs — syncs brands, events, and relevance overrides
-// Falls back to localStorage if server unreachable
-
 let syncTimer = null
 
 export async function loadFromCloud() {
@@ -28,9 +25,12 @@ async function saveToCloud(brands, events, relevanceOverrides) {
       fetch('/api/save-data', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key:'relevance', data: relevanceOverrides }) }),
     ])
     return true
-  } catch {
-    return false
-  }
+  } catch { return false }
+}
+
+// Immediately save to cloud (no debounce) — used for clears
+export async function saveNow(brands, events, relevanceOverrides) {
+  return saveToCloud(brands, events, relevanceOverrides)
 }
 
 export function scheduleSave(brands, events, relevanceOverrides, onSaved) {
@@ -38,5 +38,5 @@ export function scheduleSave(brands, events, relevanceOverrides, onSaved) {
   syncTimer = setTimeout(async () => {
     const ok = await saveToCloud(brands, events, relevanceOverrides)
     onSaved?.(ok)
-  }, 1500) // 1.5s debounce — fast enough for relevance toggles
+  }, 1500)
 }

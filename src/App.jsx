@@ -16,6 +16,7 @@ import { getStoredToken } from './utils/googleCalendar'
 import { matchAllHolidaysToAllBrands, classifyHolidays } from './utils/matching'
 import { getHolidaysForMonths } from './utils/holidayDatabase'
 import { matchHolidaysWithAI, buildLearningContext } from './utils/aiMatching'
+import { autoSelectRelevance } from './utils/autoRelevance'
 import { loadFromCloud, scheduleSave } from './utils/cloudSync'
 
 const SAMPLE_BRANDS = [
@@ -234,6 +235,21 @@ export default function App() {
         return
       }
 
+      const allEventsAfter = [...events, ...allNew]
+      // Auto-select top 2 holidays per brand per day — user can fine-tune
+      const autoOverrides = autoSelectRelevance(allEventsAfter, brands, 2)
+      // Merge: don't overwrite existing user overrides
+      setRelevanceOverrides(prev => {
+        const merged = { ...autoOverrides }
+        // Existing user overrides take priority
+        for (const [eid, brandMap] of Object.entries(prev || {})) {
+          if (!merged[eid]) merged[eid] = {}
+          for (const [bid, val] of Object.entries(brandMap)) {
+            merged[eid][bid] = val
+          }
+        }
+        return merged
+      })
       setEvents(prev => [...prev, ...allNew])
       setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
       showToast(
