@@ -1,96 +1,116 @@
 import { useState } from 'react'
 import { ClipboardPaste, X, Check, AlertCircle } from 'lucide-react'
 
-function parseHolidaysFromText(rawText, year) {
+const MONTH_NAMES = [
+  'january','february','march','april','may','june',
+  'july','august','september','october','november','december'
+]
+const MONTH_SHORT = [
+  'jan','feb','mar','apr','may','jun',
+  'jul','aug','sep','oct','nov','dec'
+]
+
+// Detect month from pasted text — tries many patterns
+function detectMonth(text) {
+  const lower = text.toLowerCase().slice(0, 2000) // only check start
+
+  // Pattern 1: "April Holidays" or "april holidays"
+  for (let i = 0; i < MONTH_NAMES.length; i++) {
+    if (lower.includes(`${MONTH_NAMES[i]} holiday`)) return i + 1
+  }
+  // Pattern 2: URL pattern "april-holidays"
+  for (let i = 0; i < MONTH_NAMES.length; i++) {
+    if (lower.includes(`${MONTH_NAMES[i]}-holiday`)) return i + 1
+  }
+  // Pattern 3: "Holidays in April" 
+  for (let i = 0; i < MONTH_NAMES.length; i++) {
+    if (lower.includes(`holidays in ${MONTH_NAMES[i]}`)) return i + 1
+  }
+  // Pattern 4: Date line like "Apr 1" or "April 1"
+  for (let i = 0; i < MONTH_SHORT.length; i++) {
+    const re = new RegExp(`\\b${MONTH_SHORT[i]}\\w*\\.?\\s+\\d{1,2}\\b`)
+    if (re.test(lower)) return i + 1
+  }
+  // Pattern 5: Just find any month name in the page title area
+  for (let i = 0; i < MONTH_NAMES.length; i++) {
+    if (lower.includes(MONTH_NAMES[i])) return i + 1
+  }
+  return null
+}
+
+// Extract holiday titles from pasted nationaltoday.com text
+function parseHolidays(rawText, month) {
   const holidays = []
   const seen = new Set()
-
-  // Strategy 1: detect month from content
-  const MONTHS = ['january','february','march','april','may','june',
-                  'july','august','september','october','november','december']
-  const MONTH_SHORT = ['','Jan','Feb','Mar','Apr','May','Jun',
-                       'Jul','Aug','Sep','Oct','Nov','Dec']
-
-  // Try to detect which month this page is for
-  let detectedMonth = null
-  const lowerText = rawText.toLowerCase()
-  for (let i = 0; i < MONTHS.length; i++) {
-    // Look for patterns like "April Holidays" or "april-holidays"
-    if (lowerText.includes(`${MONTHS[i]} holidays`) ||
-        lowerText.includes(`${MONTHS[i]}-holidays`) ||
-        lowerText.includes(`${MONTHS[i]}\nholidays`)) {
-      detectedMonth = i + 1
-      break
-    }
-  }
-
-  // Strategy: extract from table text pattern
-  // nationaltoday.com table text looks like:
-  // "Apr 1 Wednesday\n\nApril Fools' Day\nSpecial Interest\nActivities, Fun"
-  // OR when copied as plain text from browser: day headers then holiday names
-
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
 
-  let currentDay = null
-  let currentMonth = detectedMonth
+  const MONTH_SHORT_PROPER = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const monthShort = MONTH_SHORT_PROPER[month]
 
-  // Match date lines like "Apr 1", "Apr 1 Wednesday", "April 1", "April 1, 2026"
-  const dateLine = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:\s|,|$)/i
-  // Match holiday title lines - capitalized words, not a category/tag
-  const categoryWords = new Set([
-    'special interest','food & beverage','food and beverage','health','relationships',
-    'cause','arts & entertainment','arts and entertainment','cultural','federal',
-    'fun','animals','sports','technology','business','finance','seasonal','religious',
-    'activities','awareness','educational','historical','civic','christian','catholic',
-    'career','books','fashion','environmental','children','appreciation'
-  ])
+  // Words/phrases that are NOT holiday titles
+  const SKIP_PATTERNS = [
+    /^(sun|mon|tue|wed|thu|fri|sat)/i,
+    /^(january|february|march|april|may|june|july|august|september|october|november|december)$/i,
+    /^(special interest|food & beverage|food and beverage|health|relationships|cause|arts|entertainment|cultural|federal|fun|animals|sports|technology|business|finance|seasonal|religious|activities|awareness|educational|historical|civic|christian|catholic|career|books|fashion|environmental|children|appreciation|other models|civic|international)$/i,
+    /^(holiday|date|category|tags|share|tweet|pin|search|menu|sign|log in|sign up|subscribe|follow|today|national today|nationaltoday)$/i,
+    /^\d+$/,                        // pure numbers
+    /^https?:\/\//,                  // URLs
+    /^\d{1,2}:\d{2}/,               // times
+    /^[<>[\]{}]/,                    // HTML artifacts
+    /^(©|®|™)/,                     // copyright
+    /^[\W\d]{0,3}$/,                // very short non-word
+  ]
+
+  // Track current day from date lines
+  let currentDay = null
+  const dateLineRe = new RegExp(`^${monthShort}\\w*\\.?\\s+(\\d{1,2})`, 'i')
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const lower = line.toLowerCase()
 
-    // Check for date line
-    const dateMatch = line.match(dateLine)
+    // Check if this is a date line e.g. "Apr 1" or "Apr 1 Wednesday"
+    const dateMatch = line.match(dateLineRe)
     if (dateMatch) {
-      const monthStr = dateMatch[1].toLowerCase().slice(0, 3)
-      const monthIdx = MONTH_SHORT.findIndex(m => m.toLowerCase() === monthStr)
-      if (monthIdx > 0) currentMonth = monthIdx
-      currentDay = parseInt(dateMatch[2])
+      currentDay = parseInt(dateMatch[1])
       continue
     }
 
-    // Skip obvious non-holiday lines
-    if (!currentDay || !currentMonth) continue
-    if (lower.length < 3 || lower.length > 80) continue
-    if (categoryWords.has(lower)) continue
-    if (/^\d+$/.test(line)) continue // pure numbers
-    if (/^(sun|mon|tue|wed|thu|fri|sat)/i.test(line)) continue // day names
-    if (/share|tweet|pin|follow|subscribe|sign up|log in|search/i.test(lower)) continue
-    if (/^(holiday|date|category|tags)$/i.test(lower)) continue // table headers
+    // Also match "April 1" full month name  
+    const fullDateMatch = line.match(new RegExp(`^${MONTH_NAMES[month-1]}\\s+(\\d{1,2})`, 'i'))
+    if (fullDateMatch) {
+      currentDay = parseInt(fullDateMatch[1])
+      continue
+    }
 
-    // Looks like a holiday title — must start with capital, have 2+ words or be a known pattern
-    const isHolidayTitle = (
-      /^[A-Z]/.test(line) &&
-      (line.includes(' ') || line.includes("'")) &&
-      !/^https?:\/\//.test(line) &&
-      !line.includes('@') &&
-      !/^\d{4}/.test(line)
-    )
+    // Skip lines matching non-holiday patterns
+    if (SKIP_PATTERNS.some(p => p.test(line))) continue
 
-    if (isHolidayTitle) {
-      const dateStr = `${year}-${String(currentMonth).padStart(2,'0')}-${String(currentDay).padStart(2,'0')}`
-      const key = dateStr + '|' + lower
+    // Skip very short or very long lines
+    if (line.length < 4 || line.length > 80) continue
+
+    // Must start with uppercase (holiday titles do)
+    if (!/^[A-Z]/.test(line)) continue
+
+    // Must contain a space or apostrophe (not a single word like "Monday")
+    if (!line.includes(' ') && !line.includes("'") && !line.includes('-')) continue
+
+    // Skip lines that look like categories or tags (all lowercase after first char)
+    const words = line.split(' ')
+    const hasProperNouns = words.some(w => /^[A-Z]/.test(w))
+    if (!hasProperNouns) continue
+
+    // If we have a current day, this is likely a holiday
+    if (currentDay) {
+      const mmdd = `${String(month).padStart(2,'0')}-${String(currentDay).padStart(2,'0')}`
+      const key = `${mmdd}|${line.toLowerCase()}`
       if (!seen.has(key)) {
         seen.add(key)
-        // Try to pick up category from next line
-        const nextLine = lines[i + 1] || ''
-        const category = categoryWords.has(nextLine.toLowerCase()) ? nextLine : ''
         holidays.push({
-          id: `h_${dateStr}_${line.replace(/\W+/g,'_')}`,
+          id: `h_${mmdd}_${line.replace(/\W+/g,'_')}`,
           title: line,
-          date: dateStr,
-          category,
-          tags: category.toLowerCase(),
+          date: mmdd, // stored as MM-DD — year-agnostic
+          category: '',
+          tags: '',
           description: line,
           url: `https://nationaltoday.com/${line.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}/`,
         })
@@ -98,33 +118,34 @@ function parseHolidaysFromText(rawText, year) {
     }
   }
 
-  // Sort by date
-  holidays.sort((a, b) => a.date.localeCompare(b.date))
-  return { holidays, detectedMonth, year }
+  return holidays.sort((a, b) => a.date.localeCompare(b.date))
 }
 
-export default function PasteImportModal({ onClose, onImport, existingEventIds }) {
+export default function PasteImportModal({ onClose, onImport, existingIds }) {
   const [text, setText] = useState('')
-  const [year, setYear] = useState(new Date().getFullYear())
   const [preview, setPreview] = useState(null)
-  const [step, setStep] = useState('paste') // paste | preview
+  const [step, setStep] = useState('paste')
+  const [error, setError] = useState('')
 
   const handleParse = () => {
+    setError('')
     if (!text.trim()) return
-    const result = parseHolidaysFromText(text, year)
-    // Filter already imported
-    result.holidays = result.holidays.filter(h => !existingEventIds.has(h.id))
-    setPreview(result)
+
+    const month = detectMonth(text)
+    if (!month) {
+      setError('Could not detect which month this is. Make sure you copied from a nationaltoday.com/[month]-holidays/ page.')
+      return
+    }
+
+    const allHolidays = parseHolidays(text, month)
+    const newHolidays = allHolidays.filter(h => !existingIds.has(h.id))
+
+    setPreview({ holidays: newHolidays, allCount: allHolidays.length, month })
     setStep('preview')
   }
 
-  const handleConfirm = () => {
-    onImport(preview.holidays)
-    onClose()
-  }
-
-  const MONTHS = ['January','February','March','April','May','June',
-                  'July','August','September','October','November','December']
+  const MONTH_DISPLAY = ['','January','February','March','April','May','June',
+                          'July','August','September','October','November','December']
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -139,67 +160,60 @@ export default function PasteImportModal({ onClose, onImport, existingEventIds }
 
         {step === 'paste' && (
           <>
-            {/* Instructions */}
             <div style={{
               background: 'var(--gold-dim)', border: '1px solid var(--gold-glow)',
               borderRadius: 'var(--radius-sm)', padding: '14px 16px', marginBottom: 20,
             }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-                How to import (30 seconds):
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>
+                3-step import:
               </div>
               {[
-                'Go to nationaltoday.com/april-holidays/ (or any month)',
-                'Press Ctrl+A (select all) then Ctrl+C (copy)',
-                'Click in the box below and press Ctrl+V (paste)',
-                'Click Parse — holidays are extracted automatically',
+                <>Go to <strong style={{color:'var(--gold)'}}>nationaltoday.com/april-holidays/</strong> (any month)</>,
+                <>Press <strong style={{color:'var(--gold)'}}>Ctrl+A</strong> then <strong style={{color:'var(--gold)'}}>Ctrl+C</strong> to copy the whole page</>,
+                <>Click below, press <strong style={{color:'var(--gold)'}}>Ctrl+V</strong> to paste, then click Parse</>,
               ].map((s, i) => (
-                <div key={i} style={{ display:'flex', gap: 10, fontSize: 12, color: 'var(--muted-light)', marginBottom: 4 }}>
+                <div key={i} style={{ display:'flex', gap: 10, fontSize: 12, color: 'var(--muted-light)', marginBottom: 6, alignItems: 'flex-start' }}>
                   <span style={{
-                    width: 18, height: 18, borderRadius: '50%', background: 'var(--gold)',
-                    color: '#07070F', fontWeight: 800, fontSize: 10,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                    width: 20, height: 20, borderRadius: '50%', background: 'var(--gold)',
+                    color: '#07070F', fontWeight: 800, fontSize: 10, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>{i+1}</span>
-                  {s}
+                  <span>{s}</span>
                 </div>
               ))}
             </div>
 
-            <div className="form-row" style={{ marginBottom: 14 }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Year</label>
-                <select value={year} onChange={e => setYear(parseInt(e.target.value))}>
-                  {[2025, 2026, 2027].map(y => <option key={y}>{y}</option>)}
-                </select>
+            {error && (
+              <div style={{
+                background: 'rgba(232,64,85,0.1)', border: '1px solid rgba(232,64,85,0.3)',
+                borderRadius: 'var(--radius-sm)', padding: '12px 14px', marginBottom: 16,
+                display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13,
+              }}>
+                <AlertCircle size={16} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 1 }} />
+                {error}
               </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Tip</label>
-                <div style={{ fontSize: 12, color: 'var(--muted)', paddingTop: 10 }}>
-                  Month is auto-detected from the page content
-                </div>
-              </div>
-            </div>
+            )}
 
             <div className="form-group">
               <label>Paste page content here</label>
               <textarea
                 value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder="Paste the copied text from nationaltoday.com here..."
-                style={{ minHeight: 200, fontFamily: 'monospace', fontSize: 12 }}
+                onChange={e => { setText(e.target.value); setError('') }}
+                placeholder="Paste the copied text from nationaltoday.com here (Ctrl+V)..."
+                style={{ minHeight: 220, fontFamily: 'monospace', fontSize: 12 }}
                 autoFocus
               />
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-                {text.length > 0 ? `${text.length.toLocaleString()} characters pasted` : 'Nothing pasted yet'}
+                {text.length > 0
+                  ? `${text.length.toLocaleString()} characters — ${text.split('\n').length} lines`
+                  : 'Nothing pasted yet — use Ctrl+A on the nationaltoday page then Ctrl+C, then Ctrl+V here'
+                }
               </div>
             </div>
 
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-              <button
-                className="btn btn-primary"
-                onClick={handleParse}
-                disabled={text.trim().length < 100}
-              >
+              <button className="btn btn-primary" onClick={handleParse} disabled={text.trim().length < 200}>
                 <ClipboardPaste size={14} /> Parse Holidays
               </button>
             </div>
@@ -208,12 +222,11 @@ export default function PasteImportModal({ onClose, onImport, existingEventIds }
 
         {step === 'preview' && preview && (
           <>
-            {/* Result summary */}
             <div style={{
               background: preview.holidays.length > 0 ? 'rgba(32,192,122,0.1)' : 'rgba(232,64,85,0.1)',
               border: `1px solid ${preview.holidays.length > 0 ? 'rgba(32,192,122,0.3)' : 'rgba(232,64,85,0.3)'}`,
               borderRadius: 'var(--radius-sm)', padding: '14px 16px', marginBottom: 16,
-              display: 'flex', alignItems: 'center', gap: 12,
+              display: 'flex', gap: 12, alignItems: 'flex-start',
             }}>
               {preview.holidays.length > 0
                 ? <Check size={20} style={{ color: 'var(--green)', flexShrink: 0 }} />
@@ -222,42 +235,38 @@ export default function PasteImportModal({ onClose, onImport, existingEventIds }
               <div>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>
                   {preview.holidays.length > 0
-                    ? `${preview.holidays.length} new holidays found`
-                    : 'No new holidays found'
+                    ? `${preview.holidays.length} new holidays ready to import`
+                    : 'No new holidays to import'
                   }
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted-light)', marginTop: 2 }}>
-                  {preview.detectedMonth
-                    ? `Detected: ${MONTHS[preview.detectedMonth - 1]} ${preview.year}`
-                    : 'Could not detect month — check you pasted from the right page'
-                  }
-                  {preview.holidays.length === 0 && ' · Already imported or text not recognised'}
+                <div style={{ fontSize: 12, color: 'var(--muted-light)', marginTop: 3 }}>
+                  Detected month: <strong style={{ color: 'var(--text)' }}>{MONTH_DISPLAY[preview.month]}</strong>
+                  {' · '}{preview.allCount} total parsed
+                  {preview.allCount > preview.holidays.length && ` · ${preview.allCount - preview.holidays.length} already in database`}
                 </div>
               </div>
             </div>
 
             {preview.holidays.length > 0 && (
               <div style={{
-                maxHeight: 300, overflowY: 'auto',
+                maxHeight: 280, overflowY: 'auto',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                 marginBottom: 16,
               }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', background: 'var(--surface)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Date</th>
-                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, color: 'var(--muted)', background: 'var(--surface)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Holiday</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--surface)', whiteSpace: 'nowrap' }}>Day</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', background: 'var(--surface)' }}>Holiday</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.holidays.map(h => (
                       <tr key={h.id} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap', background: 'var(--card)' }}>
-                          {h.date}
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--gold)', fontFamily: 'var(--font-head)', fontWeight: 700, background: 'var(--card)', whiteSpace: 'nowrap' }}>
+                          {MONTH_DISPLAY[preview.month].slice(0,3)} {h.date.split('-')[1]}
                         </td>
-                        <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 500, background: 'var(--card)' }}>
-                          {h.title}
-                        </td>
+                        <td style={{ padding: '8px 12px', fontSize: 13, background: 'var(--card)' }}>{h.title}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -266,11 +275,11 @@ export default function PasteImportModal({ onClose, onImport, existingEventIds }
             )}
 
             <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setStep('paste')}>
+              <button className="btn btn-secondary" onClick={() => { setStep('paste'); setPreview(null) }}>
                 ← Back
               </button>
               {preview.holidays.length > 0 && (
-                <button className="btn btn-primary" onClick={handleConfirm}>
+                <button className="btn btn-primary" onClick={() => onImport(preview.holidays)}>
                   <Check size={14} /> Import {preview.holidays.length} holidays
                 </button>
               )}

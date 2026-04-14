@@ -166,9 +166,18 @@ export default function App() {
   const handlePasteImport = async (rawHolidays) => {
     if (rawHolidays.length === 0) return
     setFetching(true)
-    setFetchProgress('Matching pasted holidays to brands with AI...')
+    setFetchProgress('Matching imported holidays to brands...')
     try {
-      const { autoMatched, needsAI } = classifyHolidays(rawHolidays, brands)
+      // Apply current year to MM-DD dates for display/sorting
+      const currentYear = new Date().getFullYear()
+      const withYear = rawHolidays.map(h => ({
+        ...h,
+        // If date is MM-DD format, prefix with current year
+        date: h.date.length === 5 ? `${currentYear}-${h.date}` : h.date,
+        mmdd: h.date.length === 5 ? h.date : h.date.slice(5), // store original MM-DD
+      }))
+
+      const { autoMatched, needsAI } = classifyHolidays(withYear, brands)
       let aiMatches = {}
       if (needsAI.length > 0 && settings.geminiApiKey) {
         try {
@@ -179,6 +188,7 @@ export default function App() {
       } else {
         aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
       }
+
       const newEvents = [
         ...autoMatched.map(h => ({ ...h, isManual: false, pushed: false, notified: false, matchedBy: 'keyword' })),
         ...needsAI.filter(h => (aiMatches[h.id]||[]).length > 0).map(h => ({
@@ -186,6 +196,7 @@ export default function App() {
           matchedBy: settings.geminiApiKey ? 'ai' : 'keyword',
         })),
       ]
+
       setEvents(prev => [...prev, ...newEvents])
       const aiCount = newEvents.filter(e => e.matchedBy === 'ai').length
       const kwCount = newEvents.filter(e => e.matchedBy === 'keyword').length
