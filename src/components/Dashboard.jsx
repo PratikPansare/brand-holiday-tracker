@@ -3,7 +3,7 @@ import { Plus, RefreshCw, Calendar, CalendarCheck, TableProperties, ClipboardPas
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport, syncStatus }) {
   const today = new Date()
   const upcoming = events
     .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })
@@ -51,6 +51,10 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
           <button className="btn btn-primary" onClick={onAddEvent}>
             <Plus size={14} /> Add Event
           </button>
+          <div title={syncStatus === 'synced' ? 'Synced across devices' : syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync failed — data saved locally' : ''} style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, color:'var(--muted)', padding:'4px 8px', background:'var(--card)', borderRadius:20, border:'1px solid var(--border)' }}>
+            <span style={{ width:7, height:7, borderRadius:'50%', background: syncStatus === 'synced' ? 'var(--green)' : syncStatus === 'syncing' ? 'var(--gold)' : syncStatus === 'error' ? 'var(--red)' : 'var(--muted)', boxShadow: syncStatus === 'synced' ? '0 0 5px var(--green)' : 'none' }} />
+            {syncStatus === 'synced' ? 'Synced' : syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Local only' : ''}
+          </div>
         </div>
       </div>
 

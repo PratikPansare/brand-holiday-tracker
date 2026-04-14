@@ -16,6 +16,7 @@ import { getStoredToken } from './utils/googleCalendar'
 import { matchAllHolidaysToAllBrands, classifyHolidays } from './utils/matching'
 import { getHolidaysForMonths } from './utils/holidayDatabase'
 import { matchHolidaysWithAI } from './utils/aiMatching'
+import { loadFromCloud, scheduleSave } from './utils/cloudSync'
 
 const SAMPLE_BRANDS = [
   { id: '1',  name: 'Aesthetic Revival',          category: 'Spa & Wellness',        color: '#E8A020' },
@@ -49,13 +50,29 @@ export default function App() {
   const [fetching, setFetching] = useState(false)
   const [fetchProgress, setFetchProgress] = useState('')
 
+  const [syncStatus, setSyncStatus] = useState('idle') // idle | syncing | synced | error
+
   useEffect(() => {
     if (settings.notificationsEnabled) checkNotifications(events, brands)
     const storedToken = getStoredToken()
     if (storedToken && !settings.googleToken) {
       setSettings(s => ({ ...s, googleToken: storedToken, googleCalendarConnected: true }))
     }
+    // Load cloud data on startup — merges with local data
+    setSyncStatus('syncing')
+    loadFromCloud().then(({ brands: cloudBrands, events: cloudEvents }) => {
+      if (cloudBrands && cloudBrands.length > 0) setBrands(cloudBrands)
+      if (cloudEvents && cloudEvents.length > 0) setEvents(cloudEvents)
+      setSyncStatus('synced')
+    }).catch(() => setSyncStatus('error'))
   }, [])
+
+  // Auto-save to cloud whenever brands or events change
+  useEffect(() => {
+    if (brands.length === 0 && events.length === 0) return
+    setSyncStatus('syncing')
+    scheduleSave(brands, events, (ok) => setSyncStatus(ok ? 'synced' : 'error'))
+  }, [brands, events])
 
   const fetchHolidays = async () => {
     if (fetching) return
@@ -164,46 +181,66 @@ export default function App() {
   }
 
   const handlePasteImport = async (rawHolidays) => {
-    if (rawHolidays.length === 0) return
+    setShowPasteImport(false) // close modal immediately so user sees progress
+    if (!rawHolidays || rawHolidays.length === 0) return
+
     setFetching(true)
-    setFetchProgress('Matching imported holidays to brands...')
+    setFetchProgress(`Matching ${rawHolidays.length} holidays to your brands...`)
+
     try {
-      // Apply current year to MM-DD dates for display/sorting
       const currentYear = new Date().getFullYear()
-      const withYear = rawHolidays.map(h => ({
+      const withDates = rawHolidays.map(h => ({
         ...h,
-        // If date is MM-DD format, prefix with current year
         date: h.date.length === 5 ? `${currentYear}-${h.date}` : h.date,
-        mmdd: h.date.length === 5 ? h.date : h.date.slice(5), // store original MM-DD
       }))
 
-      const { autoMatched, needsAI } = classifyHolidays(withYear, brands)
-      let aiMatches = {}
-      if (needsAI.length > 0 && settings.geminiApiKey) {
-        try {
-          aiMatches = await matchHolidaysWithAI(needsAI, brands, settings.geminiApiKey, setFetchProgress)
-        } catch {
-          aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
-        }
-      } else {
-        aiMatches = matchAllHolidaysToAllBrands(needsAI, brands)
+      // Skip already stored
+      const existingIds = new Set(events.map(e => e.id))
+      const fresh = withDates.filter(h => !existingIds.has(h.id))
+
+      if (fresh.length === 0) {
+        showToast('Already imported', 'All these holidays are already in your database', 'info')
+        return
       }
 
-      const newEvents = [
-        ...autoMatched.map(h => ({ ...h, isManual: false, pushed: false, notified: false, matchedBy: 'keyword' })),
-        ...needsAI.filter(h => (aiMatches[h.id]||[]).length > 0).map(h => ({
-          ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false,
-          matchedBy: settings.geminiApiKey ? 'ai' : 'keyword',
-        })),
-      ]
+      // Keyword matching — fast, no API needed
+      const kwMatches = matchAllHolidaysToAllBrands(fresh, brands)
+      const kwEvents = fresh
+        .filter(h => (kwMatches[h.id] || []).length > 0)
+        .map(h => ({ ...h, brandIds: kwMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'keyword' }))
 
-      setEvents(prev => [...prev, ...newEvents])
-      const aiCount = newEvents.filter(e => e.matchedBy === 'ai').length
-      const kwCount = newEvents.filter(e => e.matchedBy === 'keyword').length
-      showToast(`${newEvents.length} holidays imported ✓`, `${kwCount} keyword + ${aiCount} AI matched`, 'success')
+      // AI only for unmatched holidays, only if Gemini key is set
+      const unmatched = fresh.filter(h => !(kwMatches[h.id] || []).length)
+      let aiEvents = []
+      if (unmatched.length > 0 && settings.geminiApiKey) {
+        try {
+          setFetchProgress(`AI matching ${unmatched.length} remaining holidays...`)
+          const aiMatches = await matchHolidaysWithAI(unmatched, brands, settings.geminiApiKey, setFetchProgress)
+          aiEvents = unmatched
+            .filter(h => (aiMatches[h.id] || []).length > 0)
+            .map(h => ({ ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'ai' }))
+        } catch (e) {
+          console.warn('AI matching failed:', e.message)
+        }
+      }
+
+      const allNew = [...kwEvents, ...aiEvents]
+
+      if (allNew.length === 0) {
+        showToast('No matches found', 'Try adding more keywords to your brands in the Brands tab', 'info')
+        return
+      }
+
+      setEvents(prev => [...prev, ...allNew])
+      setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
+      showToast(
+        `${allNew.length} holidays imported ✓`,
+        `${kwEvents.length} keyword · ${aiEvents.length} AI matched`,
+        'success'
+      )
       setView('schedule')
     } catch (err) {
-      showToast('Import failed', err.message, 'error')
+      showToast('Import failed', err.message || 'Unknown error', 'error')
     } finally {
       setFetching(false)
       setFetchProgress('')
@@ -219,7 +256,7 @@ export default function App() {
   }
 
   const views = {
-    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} />,
+    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} syncStatus={syncStatus} />,
     brands:    <BrandsView brands={brands} setBrands={setBrands} events={events} />,
     schedule:  <BrandScheduleView brands={brands} events={events} />,
     calendar:  <CalendarView brands={brands} events={events} />,

@@ -445,3 +445,7 @@ export function matchAllHolidaysToAllBrands(holidays, brands) {
   }
   return result
 }
+
+export function scoreHolidayForBrandById(event, brand) {
+  return scoreHolidayForBrand(event, brand.name)
+}

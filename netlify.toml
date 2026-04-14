@@ -26,3 +26,13 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+[[redirects]]
+  from = "/api/save-data"
+  to = "/.netlify/functions/save-data"
+  status = 200
+
+[[redirects]]
+  from = "/api/load-data"
+  to = "/.netlify/functions/load-data"
+  status = 200
