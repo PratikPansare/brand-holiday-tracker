@@ -37,6 +37,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [brands, setBrands] = useLocalStorage('brands', SAMPLE_BRANDS)
   const [events, setEvents] = useLocalStorage('events', [])
+  const [relevanceOverrides, setRelevanceOverrides] = useLocalStorage('relevanceOverrides', {})
   const [settings, setSettings] = useLocalStorage('settings', {
     googleCalendarConnected: false,
     notificationsEnabled: false,
@@ -256,9 +257,9 @@ export default function App() {
   }
 
   const views = {
-    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} onFetch={fetchHolidays} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} syncStatus={syncStatus} />,
+    dashboard: <Dashboard brands={brands} events={events} settings={settings} onAddEvent={() => setShowAddEvent(true)} fetching={fetching} fetchProgress={fetchProgress} setEvents={setEvents} onGoSchedule={() => setView('schedule')} onPasteImport={() => setShowPasteImport(true)} syncStatus={syncStatus} />,
     brands:    <BrandsView brands={brands} setBrands={setBrands} events={events} />,
-    schedule:  <BrandScheduleView brands={brands} events={events} />,
+    schedule:  <BrandScheduleView brands={brands} events={events} relevanceOverrides={relevanceOverrides} setRelevanceOverrides={setRelevanceOverrides} />,
     calendar:  <CalendarView brands={brands} events={events} />,
     events:    <EventsView brands={brands} events={events} setEvents={setEvents} settings={settings} />,
     settings:  <Settings settings={settings} setSettings={setSettings} events={events} brands={brands} />,

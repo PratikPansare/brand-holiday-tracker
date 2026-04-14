@@ -1,9 +1,9 @@
 import { format, parseISO, isThisWeek, addDays } from 'date-fns'
-import { Plus, RefreshCw, Calendar, CalendarCheck, TableProperties, ClipboardPaste } from 'lucide-react'
+import { Plus, Calendar, CalendarCheck, TableProperties, ClipboardPaste } from 'lucide-react'
 import { pushToGoogleCalendar } from '../utils/googleCalendar'
 import { scheduleNotification, showToast } from '../utils/notifications'
 
-export default function Dashboard({ brands, events, settings, onAddEvent, onFetch, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport, syncStatus }) {
+export default function Dashboard({ brands, events, settings, onAddEvent, fetching, fetchProgress, setEvents, onGoSchedule, onPasteImport, syncStatus }) {
   const today = new Date()
   const upcoming = events
     .filter(e => { const d = parseISO(e.date); return d >= today && d <= addDays(today, 30) })
@@ -41,10 +41,6 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
           <p className="page-subtitle">{format(today, 'EEEE, MMMM d, yyyy')}</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="btn btn-secondary" onClick={onFetch} disabled={fetching}>
-            {fetching ? <span className="loading-spinner" /> : <RefreshCw size={14} />}
-            {fetching ? 'Fetching...' : 'Fetch Holidays'}
-          </button>
           <button className="btn btn-secondary" onClick={onPasteImport} disabled={fetching}>
             <ClipboardPaste size={14} /> Paste Import
           </button>
@@ -94,7 +90,7 @@ export default function Dashboard({ brands, events, settings, onAddEvent, onFetc
             <div className="empty-state">
               <Calendar size={40} />
               <h3>No upcoming events</h3>
-              <p>Click "Fetch Holidays" to auto-populate events for all your brands</p>
+              <p>Use Paste Import to import holidays from nationaltoday.com</p>
             </div>
           ) : (
             <div className="event-list">
