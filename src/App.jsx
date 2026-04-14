@@ -58,11 +58,10 @@ export default function App() {
 
   const [syncStatus, setSyncStatus] = useState('idle') // idle | syncing | synced | error
 
-  // Apply font size preference globally
+  // Apply font size via data-attribute — CSS targets this
   useEffect(() => {
-    const size = settings.fontSize || 14
-    document.documentElement.style.setProperty('--user-font-size', size + 'px')
-    document.documentElement.style.fontSize = size + 'px'
+    const size = settings.fontSize || 'md'
+    document.documentElement.setAttribute('data-fontsize', size)
   }, [settings.fontSize])
 
   useEffect(() => {

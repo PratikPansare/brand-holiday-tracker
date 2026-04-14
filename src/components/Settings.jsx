@@ -214,12 +214,12 @@ export default function Settings({ settings, setSettings, events, brands }) {
           </div>
           <div style={{ display:'flex', gap:6, alignItems:'center' }}>
             {[
-              { label:'S', value:13 },
-              { label:'M', value:14 },
-              { label:'L', value:16 },
-              { label:'XL', value:18 },
+              { label:'S', value:'sm' },
+              { label:'M', value:'md' },
+              { label:'L', value:'lg' },
+              { label:'XL', value:'xl' },
             ].map(({ label, value }) => {
-              const active = (settings.fontSize || 14) === value
+              const active = (settings.fontSize || 'md') === value
               return (
                 <button key={value} onClick={() => setSettings(s => ({ ...s, fontSize: value }))}
                   style={{

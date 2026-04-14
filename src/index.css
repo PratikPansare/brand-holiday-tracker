@@ -1231,3 +1231,68 @@ textarea { resize: vertical; min-height: 90px; }
 @media (max-width: 768px) {
   .sidebar.collapsed { width: var(--sidebar-w) !important; }
 }
+
+/* ===== FONT SIZE SCALING ===== */
+/* Default = md = 14px base, already set in :root */
+
+[data-fontsize="sm"] {
+  font-size: 12px;
+}
+[data-fontsize="sm"] .page-title        { font-size: 20px; }
+[data-fontsize="sm"] .stat-value        { font-size: 26px; }
+[data-fontsize="sm"] tbody td           { font-size: 12px; }
+[data-fontsize="sm"] .nav-item          { font-size: 12px; }
+[data-fontsize="sm"] .event-title       { font-size: 12px; }
+
+[data-fontsize="md"] {
+  font-size: 14px; /* default — no overrides needed */
+}
+
+[data-fontsize="lg"] {
+  font-size: 16px;
+}
+[data-fontsize="lg"] html, [data-fontsize="lg"] body { font-size: 16px; }
+[data-fontsize="lg"] .page-title        { font-size: 28px; }
+[data-fontsize="lg"] .page-subtitle     { font-size: 15px; }
+[data-fontsize="lg"] .stat-value        { font-size: 36px; }
+[data-fontsize="lg"] .stat-label        { font-size: 12px; }
+[data-fontsize="lg"] .nav-item          { font-size: 15px; }
+[data-fontsize="lg"] .section-title     { font-size: 17px; }
+[data-fontsize="lg"] .event-title       { font-size: 15px; }
+[data-fontsize="lg"] .event-brands      { font-size: 13px; }
+[data-fontsize="lg"] .brand-name        { font-size: 17px; }
+[data-fontsize="lg"] tbody td           { font-size: 15px; font-size: 15px; }
+[data-fontsize="lg"] thead th           { font-size: 12px; }
+[data-fontsize="lg"] .cal-event         { font-size: 12px; }
+[data-fontsize="lg"] label              { font-size: 14px; }
+[data-fontsize="lg"] input, [data-fontsize="lg"] select, [data-fontsize="lg"] textarea { font-size: 16px; }
+[data-fontsize="lg"] .btn               { font-size: 15px; }
+[data-fontsize="lg"] .badge             { font-size: 13px; }
+[data-fontsize="lg"] .brand-pill        { font-size: 13px; }
+[data-fontsize="lg"] .toast-title       { font-size: 15px; }
+[data-fontsize="lg"] .settings-row-info { font-size: 15px; }
+
+[data-fontsize="xl"] {
+  font-size: 18px;
+}
+[data-fontsize="xl"] .page-title        { font-size: 32px; }
+[data-fontsize="xl"] .page-subtitle     { font-size: 17px; }
+[data-fontsize="xl"] .stat-value        { font-size: 40px; }
+[data-fontsize="xl"] .stat-label        { font-size: 13px; }
+[data-fontsize="xl"] .nav-item          { font-size: 17px; }
+[data-fontsize="xl"] .section-title     { font-size: 19px; }
+[data-fontsize="xl"] .event-title       { font-size: 17px; }
+[data-fontsize="xl"] .brand-name        { font-size: 19px; }
+[data-fontsize="xl"] tbody td           { font-size: 16px; }
+[data-fontsize="xl"] thead th           { font-size: 13px; }
+[data-fontsize="xl"] .cal-event         { font-size: 13px; }
+[data-fontsize="xl"] label              { font-size: 16px; }
+[data-fontsize="xl"] input, [data-fontsize="xl"] select, [data-fontsize="xl"] textarea { font-size: 18px; padding: 12px 16px; }
+[data-fontsize="xl"] .btn               { font-size: 16px; padding: 10px 20px; }
+[data-fontsize="xl"] .badge             { font-size: 14px; }
+[data-fontsize="xl"] .brand-pill        { font-size: 14px; }
+[data-fontsize="xl"] .toast-title       { font-size: 16px; }
+[data-fontsize="xl"] .settings-row-info { font-size: 17px; }
+[data-fontsize="xl"] .settings-row-desc { font-size: 14px; }
+[data-fontsize="xl"] .logo-text         { font-size: 16px; }
+[data-fontsize="xl"] .nav-label         { font-size: 12px; }
