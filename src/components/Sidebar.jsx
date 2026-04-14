@@ -1,5 +1,4 @@
-import { LayoutDashboard, Tag, Calendar, List, Settings, Plus,
-         TableProperties, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { LayoutDashboard, Tag, Calendar, List, Settings, Plus, TableProperties, Menu } from 'lucide-react'
 
 export default function Sidebar({ view, setView, onAddEvent, isOpen, onClose, collapsed, setCollapsed }) {
   const NAV = [
@@ -10,7 +9,22 @@ export default function Sidebar({ view, setView, onAddEvent, isOpen, onClose, co
     { id: 'events',    label: 'All Events',     icon: List },
   ]
 
-  const handleNav = (id) => { setView(id); onClose?.() }
+  const handleNav = (id) => {
+    setView(id)
+    // On mobile: close drawer after nav
+    if (window.innerWidth <= 768) onClose?.()
+    // On desktop collapsed: keep collapsed
+  }
+
+  // Desktop: hamburger toggles collapsed ↔ expanded
+  // Mobile: hamburger is in the top bar (App.jsx), this just renders the drawer
+  const handleHamburger = () => {
+    if (window.innerWidth <= 768) {
+      onClose?.() // close mobile drawer
+    } else {
+      setCollapsed?.(v => !v) // toggle desktop collapse
+    }
+  }
 
   return (
     <>
@@ -19,63 +33,55 @@ export default function Sidebar({ view, setView, onAddEvent, isOpen, onClose, co
 
       <aside className={`sidebar ${isOpen ? 'open' : ''} ${collapsed ? 'collapsed' : ''}`}>
 
-        {/* ── Header row ── */}
+        {/* Header row — hamburger is the ONLY control */}
         <div className="sidebar-logo" style={{
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'space-between',
-          gap: collapsed ? 0 : 10,
+          padding: collapsed ? '18px 0' : undefined,
         }}>
-          {/* Logo always visible */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <div className="logo-mark" style={{ flexShrink: 0 }}>B</div>
-            {!collapsed && (
-              <div style={{ overflow: 'hidden' }}>
+          {!collapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div className="logo-mark" style={{ flexShrink: 0 }}>B</div>
+              <div>
                 <div className="logo-text">BrandTrack</div>
                 <div className="logo-sub">Holiday Dashboard</div>
               </div>
-            )}
-          </div>
-
-          {/* Desktop: collapse/expand icon — hidden on mobile */}
-          {!collapsed && (
-            <button
-              onClick={() => setCollapsed?.(v => !v)}
-              title="Collapse sidebar"
-              style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}
-              className="desktop-only"
-              onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
-              onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
-            >
-              <PanelLeftClose size={17} />
-            </button>
+            </div>
           )}
+          {collapsed && <div className="logo-mark">B</div>}
 
-          {/* Mobile: close X — hidden on desktop */}
+          {/* Single hamburger button — does everything */}
           <button
-            onClick={onClose}
-            title="Close"
-            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0 }}
-            className="mobile-only"
+            onClick={handleHamburger}
+            title={collapsed ? 'Expand' : 'Collapse'}
+            style={{
+              background: 'none', border: 'none', color: 'var(--muted)',
+              cursor: 'pointer', padding: 6, borderRadius: 6,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+              // On desktop collapsed: show below logo mark, not beside it
+              ...(collapsed ? { marginTop: 8 } : {}),
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--muted)'}
           >
-            <X size={18} />
+            <Menu size={18} />
           </button>
         </div>
 
-        {/* ── Nav items ── */}
+        {/* Nav */}
         <nav className="nav-section" style={{ flex: 1 }}>
           {!collapsed && <div className="nav-label">Main</div>}
-
           {NAV.map(({ id, label, icon: Icon }) => (
             <div
               key={id}
               className={`nav-item ${view === id ? 'active' : ''}`}
               onClick={() => handleNav(id)}
               title={collapsed ? label : undefined}
-              style={{
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                padding: collapsed ? '9px' : undefined,
-              }}
+              style={{ justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '10px 0' : undefined }}
             >
-              <Icon size={16} style={{ flexShrink: 0 }} />
+              <Icon size={collapsed ? 20 : 16} style={{ flexShrink: 0 }} />
               {!collapsed && <span style={{ flex: 1 }}>{label}</span>}
             </div>
           ))}
@@ -85,44 +91,30 @@ export default function Sidebar({ view, setView, onAddEvent, isOpen, onClose, co
             className={`nav-item ${view === 'settings' ? 'active' : ''}`}
             onClick={() => handleNav('settings')}
             title={collapsed ? 'Settings' : undefined}
-            style={{
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              padding: collapsed ? '9px' : undefined,
-            }}
+            style={{ justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '10px 0' : undefined }}
           >
-            <Settings size={16} style={{ flexShrink: 0 }} />
+            <Settings size={collapsed ? 20 : 16} style={{ flexShrink: 0 }} />
             {!collapsed && <span>Settings</span>}
           </div>
         </nav>
 
-        {/* ── Bottom ── */}
-        <div className="sidebar-bottom" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Expand button (desktop, collapsed state only) */}
-          {collapsed && (
-            <button
-              onClick={() => setCollapsed?.(v => !v)}
-              title="Expand sidebar"
-              className="desktop-only"
-              style={{ background: 'none', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)', color: 'var(--muted)', cursor: 'pointer', padding: '7px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--gold)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border-light)' }}
-            >
-              <PanelLeftOpen size={16} />
-            </button>
-          )}
-
-          {/* Add event button */}
+        {/* Bottom — add event */}
+        <div className="sidebar-bottom">
           {!collapsed ? (
-            <button className="add-btn" onClick={() => { onAddEvent(); onClose?.() }}>
+            <button className="add-btn" onClick={() => { onAddEvent(); if (window.innerWidth <= 768) onClose?.() }}>
               <Plus size={15} /> Add Event
             </button>
           ) : (
             <button
-              onClick={() => { onAddEvent(); onClose?.() }}
+              onClick={() => { onAddEvent(); if (window.innerWidth <= 768) onClose?.() }}
               title="Add Event"
-              style={{ background: 'var(--gold)', border: 'none', borderRadius: 'var(--radius-sm)', padding: '9px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#07070F' }}
+              style={{
+                background: 'var(--gold)', border: 'none', borderRadius: 'var(--radius-sm)',
+                padding: '10px', cursor: 'pointer', width: '100%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#07070F',
+              }}
             >
-              <Plus size={16} />
+              <Plus size={18} />
             </button>
           )}
         </div>

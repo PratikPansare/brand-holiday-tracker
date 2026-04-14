@@ -331,8 +331,9 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* Mobile top bar — only visible on mobile */}
       <header className="mobile-header">
-        <button className="hamburger" onClick={() => setSidebarOpen(true)}>
+        <button className="hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
           <Menu size={22} />
         </button>
         <span className="mobile-logo">BrandTrack</span>

@@ -1296,3 +1296,39 @@ textarea { resize: vertical; min-height: 90px; }
 [data-fontsize="xl"] .settings-row-desc { font-size: 14px; }
 [data-fontsize="xl"] .logo-text         { font-size: 16px; }
 [data-fontsize="xl"] .nav-label         { font-size: 12px; }
+
+/* ===== BRAND SCHEDULE FONT SCALING ===== */
+/* Mobile list view */
+[data-fontsize="lg"] .mobile-only .page-title  { font-size: 24px; }
+[data-fontsize="xl"] .mobile-only .page-title  { font-size: 28px; }
+
+/* Brand name in schedule card */
+[data-fontsize="lg"] [style*="font-size: 16"] ,
+[data-fontsize="lg"] [style*="fontSize: 16"]  { font-size: 18px !important; }
+[data-fontsize="xl"] [style*="font-size: 16"] ,
+[data-fontsize="xl"] [style*="fontSize: 16"]  { font-size: 20px !important; }
+
+/* Inline-styled text in schedule — target by data attribute on wrapper */
+.schedule-text-sm   { font-size: 0.85em; }
+.schedule-text-base { font-size: 1em; }
+.schedule-text-lg   { font-size: 1.15em; }
+
+/* Schedule day number */
+[data-fontsize="lg"] .schedule-day-num { font-size: 26px !important; }
+[data-fontsize="xl"] .schedule-day-num { font-size: 30px !important; }
+
+/* Schedule event pills in mobile list */
+[data-fontsize="lg"] .schedule-event-pill { font-size: 14px !important; padding: 10px 14px !important; }
+[data-fontsize="xl"] .schedule-event-pill { font-size: 16px !important; padding: 12px 16px !important; min-height: 52px !important; }
+
+/* Schedule hidden items text */
+[data-fontsize="lg"] .schedule-hidden-label { font-size: 13px !important; }
+[data-fontsize="xl"] .schedule-hidden-label { font-size: 15px !important; }
+
+/* Brand chip buttons in mobile schedule */
+[data-fontsize="lg"] .schedule-brand-chip { font-size: 14px !important; padding: 9px 18px !important; }
+[data-fontsize="xl"] .schedule-brand-chip { font-size: 16px !important; padding: 11px 20px !important; }
+
+/* Desktop table cells */
+[data-fontsize="lg"] .schedule-table-cell { font-size: 11px !important; }
+[data-fontsize="xl"] .schedule-table-cell { font-size: 12px !important; }

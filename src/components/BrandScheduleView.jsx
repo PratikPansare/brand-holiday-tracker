@@ -29,6 +29,7 @@ function MobileView({ brands, days, getEventsForBrandDay, getRelevance, toggleRe
           <button
             key={b.id}
             onClick={() => setActiveBrandId(b.id)}
+            className='schedule-brand-chip'
             style={{
               flexShrink:0, padding:'7px 14px', borderRadius:20, border:'none', cursor:'pointer',
               background: activeBrandId === b.id ? b.color : 'var(--card)',
@@ -78,7 +79,7 @@ function MobileView({ brands, days, getEventsForBrandDay, getRelevance, toggleRe
                 <div style={{ display:'flex', gap:14, alignItems:'flex-start', padding:'12px 14px' }}>
                   {/* Date badge */}
                   <div style={{ textAlign:'center', minWidth:42, flexShrink:0 }}>
-                    <div style={{ fontFamily:'var(--font-head)', fontWeight:800, fontSize:22, color: cur ? brand.color : 'var(--muted-light)', lineHeight:1 }}>{format(day,'d')}</div>
+                    <div className="schedule-day-num" style={{ fontFamily:'var(--font-head)', fontWeight:800, fontSize:22, color: cur ? brand.color : 'var(--muted-light)', lineHeight:1 }}>{format(day,'d')}</div>
                     <div style={{ fontSize:10, color:'var(--muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.04em' }}>{format(day,'EEE')}</div>
                   </div>
 
@@ -90,6 +91,7 @@ function MobileView({ brands, days, getEventsForBrandDay, getRelevance, toggleRe
                     {relevant.map(event => (
                       <div
                         key={event.id}
+                        className="schedule-event-pill"
                         onClick={() => toggleRelevance(event.id, brand.id)}
                         style={{
                           padding:'10px 14px', borderRadius:8, cursor:'pointer',
@@ -112,6 +114,7 @@ function MobileView({ brands, days, getEventsForBrandDay, getRelevance, toggleRe
                       <div>
                         {!isExpanded ? (
                           <button
+                            className="schedule-hidden-label"
                             onClick={() => setExpandedDays(p => ({...p, [dayKey]:true}))}
                             style={{ background:'none', border:'none', color:'var(--muted)', cursor:'pointer', fontSize:12, display:'flex', alignItems:'center', gap:5, padding:'4px 0' }}
                           >
