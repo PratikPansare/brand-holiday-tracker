@@ -203,36 +203,39 @@ export default function Settings({ settings, setSettings, events, brands }) {
 
       {/* ── DATA ──────────────────────────────────────────── */}
       <div className="settings-section">
-        <div className="settings-section-header">Data & Fetch Settings</div>
+        <div className="settings-section-header">Data</div>
 
-        {/* Months to fetch */}
+
+        {/* Font size */}
         <div className="settings-row">
           <div>
-            <div>Months to fetch per pull</div>
-            <div className="settings-row-desc">
-              {settings.monthsToFetch === 1 && '1 Gemini API call — recommended for weekly use'}
-              {settings.monthsToFetch === 2 && '~1–2 Gemini API calls — good for planning ahead'}
-              {settings.monthsToFetch === 3 && '~2–3 Gemini API calls — uses more daily quota'}
-              {!settings.monthsToFetch && '1 Gemini API call — recommended'}
-            </div>
+            <div>Font Size</div>
+            <div className="settings-row-desc">Adjust text size across the dashboard</div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {[1, 2, 3].map(n => (
-              <button
-                key={n}
-                onClick={() => setSettings(s => ({ ...s, monthsToFetch: n }))}
-                style={{
-                  width: 36, height: 36, borderRadius: 'var(--radius-sm)',
-                  border: `1px solid ${(settings.monthsToFetch || 1) === n ? 'var(--gold)' : 'var(--border-light)'}`,
-                  background: (settings.monthsToFetch || 1) === n ? 'var(--gold-dim)' : 'transparent',
-                  color: (settings.monthsToFetch || 1) === n ? 'var(--gold)' : 'var(--muted-light)',
-                  fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: 15,
-                  cursor: 'pointer', transition: 'all 0.15s ease',
-                }}
-              >{n}</button>
-            ))}
+          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+            {[
+              { label:'S', value:13 },
+              { label:'M', value:14 },
+              { label:'L', value:16 },
+              { label:'XL', value:18 },
+            ].map(({ label, value }) => {
+              const active = (settings.fontSize || 14) === value
+              return (
+                <button key={value} onClick={() => setSettings(s => ({ ...s, fontSize: value }))}
+                  style={{
+                    width:36, height:36, borderRadius:'var(--radius-sm)',
+                    border:`1px solid ${active ? 'var(--gold)' : 'var(--border-light)'}`,
+                    background: active ? 'var(--gold-dim)' : 'transparent',
+                    color: active ? 'var(--gold)' : 'var(--muted-light)',
+                    fontFamily:'var(--font-body)', fontWeight: active ? 700 : 400,
+                    fontSize: 12, cursor:'pointer', transition:'all 0.15s ease',
+                  }}
+                >{label}</button>
+              )
+            })}
           </div>
         </div>
+
         <div className="settings-row">
           <div>
             <div>Export</div>

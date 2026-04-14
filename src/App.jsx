@@ -9,6 +9,7 @@ import EventsView from './components/EventsView'
 import Settings from './components/Settings'
 import AddEventModal from './components/AddEventModal'
 import PasteImportModal from './components/PasteImportModal'
+import ProgressOverlay from './components/ProgressOverlay'
 import Toast from './components/Toast'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { checkNotifications, scheduleNotification, showToast } from './utils/notifications'
@@ -36,6 +37,7 @@ const SAMPLE_BRANDS = [
 export default function App() {
   const [view, setView] = useState('schedule')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useLocalStorage('sidebarCollapsed', false)
   const [brands, setBrands] = useLocalStorage('brands', SAMPLE_BRANDS)
   const [events, setEvents] = useLocalStorage('events', [])
   const [relevanceOverrides, setRelevanceOverrides] = useLocalStorage('relevanceOverrides', {})
@@ -49,10 +51,19 @@ export default function App() {
   })
   const [showAddEvent, setShowAddEvent] = useState(false)
   const [showPasteImport, setShowPasteImport] = useState(false)
+  const [showProgress, setShowProgress] = useState(false)
+  const [progressSteps, setProgressSteps] = useState([])
   const [fetching, setFetching] = useState(false)
   const [fetchProgress, setFetchProgress] = useState('')
 
   const [syncStatus, setSyncStatus] = useState('idle') // idle | syncing | synced | error
+
+  // Apply font size preference globally
+  useEffect(() => {
+    const size = settings.fontSize || 14
+    document.documentElement.style.setProperty('--user-font-size', size + 'px')
+    document.documentElement.style.fontSize = size + 'px'
+  }, [settings.fontSize])
 
   useEffect(() => {
     if (settings.notificationsEnabled) checkNotifications(events, brands)
@@ -183,83 +194,119 @@ export default function App() {
     }
   }
 
+  // Helper: update a single step in the progress overlay
+  const setStep = (id, status, detail) => {
+    setProgressSteps(prev => prev.map(s => s.id === id ? { ...s, status, detail: detail ?? s.detail } : s))
+  }
+
   const handlePasteImport = async (rawHolidays) => {
-    setShowPasteImport(false) // close modal immediately so user sees progress
+    setShowPasteImport(false)
     if (!rawHolidays || rawHolidays.length === 0) return
 
+    const hasAI = !!settings.geminiApiKey
+    const initialSteps = [
+      { id: 'parse',    label: 'Preparing holidays',         status: 'active',   detail: `${rawHolidays.length} holidays ready` },
+      { id: 'keyword',  label: 'Keyword brand matching',     status: 'waiting',  detail: null },
+      ...(hasAI ? [{ id: 'ai', label: 'AI brand matching', status: 'waiting', detail: null }] : []),
+      { id: 'relevance',label: 'Auto-selecting top events',  status: 'waiting',  detail: null },
+      { id: 'save',     label: 'Saving to cloud',            status: 'waiting',  detail: null },
+    ]
+    setProgressSteps(initialSteps)
+    setShowProgress(true)
     setFetching(true)
-    setFetchProgress(`Matching ${rawHolidays.length} holidays to your brands...`)
 
     try {
+      // Step 1: prepare dates
       const currentYear = new Date().getFullYear()
       const withDates = rawHolidays.map(h => ({
         ...h,
         date: h.date.length === 5 ? `${currentYear}-${h.date}` : h.date,
       }))
 
-      // Skip already stored
       const existingIds = new Set(events.map(e => e.id))
       const fresh = withDates.filter(h => !existingIds.has(h.id))
 
       if (fresh.length === 0) {
-        showToast('Already imported', 'All these holidays are already in your database', 'info')
+        setStep('parse', 'done', 'All holidays already imported')
+        setStep('keyword', 'done', 'Nothing new to match')
+        if (hasAI) setStep('ai', 'done', 'Skipped')
+        setStep('relevance', 'done', 'Skipped')
+        setStep('save', 'done', 'No changes')
         return
       }
 
-      // Keyword matching — fast, no API needed
+      setStep('parse', 'done', `${fresh.length} new holidays to process`)
+
+      // Step 2: keyword matching
+      setStep('keyword', 'active', 'Matching holidays to brands by keyword...')
       const kwMatches = matchAllHolidaysToAllBrands(fresh, brands)
       const kwEvents = fresh
         .filter(h => (kwMatches[h.id] || []).length > 0)
         .map(h => ({ ...h, brandIds: kwMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'keyword' }))
+      setStep('keyword', 'done', `${kwEvents.length} holidays matched across ${brands.length} brands`)
 
-      // AI only for unmatched holidays, only if Gemini key is set
+      // Step 3: AI for unmatched (optional)
       const unmatched = fresh.filter(h => !(kwMatches[h.id] || []).length)
       let aiEvents = []
-      if (unmatched.length > 0 && settings.geminiApiKey) {
-        try {
-          setFetchProgress(`AI matching ${unmatched.length} remaining holidays...`)
-          const learningCtx = buildLearningContext(events, relevanceOverrides, brands)
-          const aiMatches = await matchHolidaysWithAI(unmatched, brands, settings.geminiApiKey, setFetchProgress, learningCtx)
-          aiEvents = unmatched
-            .filter(h => (aiMatches[h.id] || []).length > 0)
-            .map(h => ({ ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'ai' }))
-        } catch (e) {
-          console.warn('AI matching failed:', e.message)
+      if (hasAI) {
+        if (unmatched.length > 0) {
+          setStep('ai', 'active', `Sending ${unmatched.length} holidays to Gemini AI...`)
+          try {
+            const learningCtx = buildLearningContext(events, relevanceOverrides, brands)
+            const aiMatches = await matchHolidaysWithAI(
+              unmatched, brands, settings.geminiApiKey,
+              (msg) => setStep('ai', 'active', msg),
+              learningCtx
+            )
+            aiEvents = unmatched
+              .filter(h => (aiMatches[h.id] || []).length > 0)
+              .map(h => ({ ...h, brandIds: aiMatches[h.id], isManual: false, pushed: false, notified: false, matchedBy: 'ai' }))
+            setStep('ai', 'done', `${aiEvents.length} additional holidays matched by AI`)
+          } catch (e) {
+            setStep('ai', 'error', `AI failed: ${e.message}`)
+          }
+        } else {
+          setStep('ai', 'done', 'All holidays matched by keyword — AI not needed')
         }
       }
 
       const allNew = [...kwEvents, ...aiEvents]
 
       if (allNew.length === 0) {
-        showToast('No matches found', 'Try adding more keywords to your brands in the Brands tab', 'info')
+        setStep('relevance', 'error', 'No holidays matched any brand')
+        setStep('save', 'error', 'Nothing to save')
         return
       }
 
+      // Step 4: auto-relevance
+      setStep('relevance', 'active', `Selecting top 2 events per brand per day from ${allNew.length} events...`)
       const allEventsAfter = [...events, ...allNew]
-      // Auto-select top 2 holidays per brand per day — user can fine-tune
       const autoOverrides = autoSelectRelevance(allEventsAfter, brands, 2)
-      // Merge: don't overwrite existing user overrides
+      const relevantCount = Object.values(autoOverrides).reduce((sum, brandMap) =>
+        sum + Object.values(brandMap).filter(v => v === 'relevant').length, 0)
+
       setRelevanceOverrides(prev => {
         const merged = { ...autoOverrides }
-        // Existing user overrides take priority
         for (const [eid, brandMap] of Object.entries(prev || {})) {
           if (!merged[eid]) merged[eid] = {}
-          for (const [bid, val] of Object.entries(brandMap)) {
-            merged[eid][bid] = val
-          }
+          for (const [bid, val] of Object.entries(brandMap)) merged[eid][bid] = val
         }
         return merged
       })
       setEvents(prev => [...prev, ...allNew])
       setSettings(s => ({ ...s, lastFetch: new Date().toISOString() }))
-      showToast(
-        `${allNew.length} holidays imported ✓`,
-        `${kwEvents.length} keyword · ${aiEvents.length} AI matched`,
-        'success'
-      )
-      setView('schedule')
+      setStep('relevance', 'done', `${relevantCount} events marked relevant, rest collapsed`)
+
+      // Step 5: save to cloud
+      setStep('save', 'active', 'Syncing to cloud...')
+      const allEventsNew = [...events, ...allNew]
+      const saveOk = await import('./utils/cloudSync').then(m => m.saveNow(brands, allEventsNew, autoOverrides))
+      setStep('save', saveOk ? 'done' : 'error', saveOk ? 'Synced — visible on all devices' : 'Saved locally only (cloud unavailable)')
+
     } catch (err) {
+      console.error('Import error:', err)
       showToast('Import failed', err.message || 'Unknown error', 'error')
+      setShowProgress(false)
     } finally {
       setFetching(false)
       setFetchProgress('')
@@ -295,11 +342,17 @@ export default function App() {
         </button>
       </header>
 
-      <Sidebar view={view} setView={setView} onAddEvent={() => setShowAddEvent(true)} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar view={view} setView={setView} onAddEvent={() => setShowAddEvent(true)} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
 
       <main className="main-content">{views[view]}</main>
 
       {showAddEvent && <AddEventModal brands={brands} onClose={() => setShowAddEvent(false)} onAdd={handleAddEvent} />}
+      <ProgressOverlay
+        visible={showProgress}
+        title="Importing Holidays"
+        steps={progressSteps}
+        onDone={() => { setShowProgress(false); setView('schedule') }}
+      />
       {showPasteImport && (
         <PasteImportModal
           onClose={() => setShowPasteImport(false)}
